@@ -1,9 +1,4 @@
----
-output:
-  word_document: default
-  html_document: default
----
-![](logo_pos.png){width="150" height="32"}
+
 
 ---
 output:
@@ -27,6 +22,8 @@ output:
 date: "`r format(Sys.time(), '%A %d. %B %Y')`"
 ---
 
+
+
 ```{r setup, include=FALSE}
 library(knitr)
 library(shiny)
@@ -37,7 +34,7 @@ library(mcr)
 opts_chunk$set(echo = TRUE)
 ```
 
-## Validations-Auswertung
+
 
 <!-- Prepare libraries and import data from Excel -->
 
