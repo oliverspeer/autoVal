@@ -1,0 +1,250 @@
+---
+output:
+  word_document: default
+  html_document: default
+---
+![](logo_pos.png){width="150" height="32"}
+
+---
+output:
+  html_document: default
+  pdf_document: default
+  word_document: default
+  '': default
+  allways_allow_html: true
+---
+
+
+
+
+---
+output:
+  html_document:
+    css: "style.css"
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    df_print: paged
+  pdf_document: default
+  '': default
+date: "`r format(Sys.time(), '%A %d. %B %Y')`"
+---
+
+
+
+```{r setup, include=FALSE}
+library(knitr)
+library(shiny)
+opts_chunk$set(echo = TRUE)
+```
+
+
+
+Ziel dieses HTML- oder PDF-Dokumentes ist es die komplette Validation, von der Planung über die Validations-Auswertung bis zur Freigabe eines neuen Assays und/oder eines neuen Gerätes zu standardisieren und zu automatisieren.
+
+## Validations-Planung
+
+**Kommt später**. Oder in einem anderen Dokument.
+
+
+## Validations-Auswertung
+
+
+
+
+
+
+
+
+
+<!-- Prepare libraries and import data from Excel -->
+<!-- create vectors method.x and method.y, run Passing Bablok regression -->
+<!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
+
+```{r prepareLib, echo=FALSE}
+
+library(parallel)
+library(robslopes)
+library(readxl)
+library(mcr)
+library(shiny)
+library(ggplot2)
+## Import Data from a xlsx file, create the vectors for reference x and test y
+validation.data <- read_xlsx("C:/R_local/Validation_Data.xlsx")
+method.x <- validation.data[[1]]
+method.y <- validation.data[[2]]
+## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
+PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+PB.reg@mnames[1] <- colnames(validation.data)[1]
+PB.reg@mnames[2] <- colnames(validation.data)[2]
+
+```
+
+---
+title: "`r paste("Validation: ", colnames(validation.data)[2],"vs", colnames(validation.data)[1])`"
+---
+
+
+<!-- Pearsson correlation and plot, sample number n from PB.reg@data -->
+
+
+### Korrelation
+¨
+
+
+```{r, echo=FALSE}
+
+## Correlation plot with Pearsson correlation
+## Creating the plot
+plot(method.x, method.y, pch = 19, col = "#68228B", 
+     xlab=colnames(validation.data)[1], ylab=colnames(validation.data)[2])
+
+## Regression line
+abline(lm(method.y ~ method.x), col = "red", lwd = 3)
+
+## Pearson correlation
+text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=40, y=10)
+text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
+
+```
+
+#### weiterer Scatter Plot
+
+```{r, echo=FALSE, message=FALSE}
+
+ggplot(validation.data, aes(x=method.x, y=method.y)) +
+  theme_bw() + 
+  geom_point(shape=1) +    ## Use hollow circles
+  geom_smooth(method=lm) +  ## Add linear regression line 
+  geom_abline(slope = 1, intercept = 0, linetype = 2, colour = "red")
+
+```
+
+
+
+### Regression nach Passing Bablok
+
+<!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
+
+```{r PB, echo=FALSE}
+
+MCResult.plot(PB.reg, equal.axis = TRUE, x.lab = colnames(validation.data)[1], y.lab = colnames(validation.data)[2], points.col = "#68228B", points.pch = 19, ci.area = TRUE, ci.area.col = "#0000FF50", main = paste(colnames(validation.data)[2], "vs", colnames(validation.data)[1]), sub = "", add.cor = TRUE, cor.method = "spearman", add.grid = FALSE, points.cex = 1)
+
+##Angabe Steigung und Achsenabschnitt und CI
+intercept_est <- PB.reg@para[1]
+intercept_lci <- PB.reg@para[5]
+intercept_uci <- PB.reg@para[7]
+gradient_est <- PB.reg@para[2]
+gradient_lci <- PB.reg@para[6]
+gradient_uci <- PB.reg@para[8]
+alpha_ci <- PB.reg@alpha[1]
+text(40,20,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+text(40,15,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+text(40,10, sprintf("Alpha : %4.2f", alpha_ci))
+
+```
+
+
+
+
+
+### Bland-Altman
+
+#### according to MCR
+
+```{r, echo=FALSE}
+
+MCResult.plotDifference(PB.reg)
+
+```
+
+
+```{r BA, echo=FALSE, message=FALSE, warning=FALSE}
+
+
+
+
+
+
+mean.diff <- (method.y + method.y)/2
+diff <- (method.y - method.x)
+diffp <- diff/mean.diff*100
+sd.diff <- sd(diff)
+sd.diffp <- sd(diffp)
+validation.data <- data.frame(method.x, method.y, mean.diff, diff, diffp)
+
+library(ggExtra)
+diffplot <- ggplot(validation.data, aes(mean.diff, diff)) + 
+  geom_point(size=2, colour = rgb(0,0,0, alpha = 0.5)) + 
+  theme_bw() + 
+  ##when the +/- 2SD lines will fall outside the default plot limits 
+  ##they need to be pre-stated explicitly to make the histogram line up     ##properly. 
+  ##Thanks to commenter for noticing this.
+  ylim(mean(diff) - 3*sd.diff, mean(diff) + 3*sd.diff) +
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_hline(yintercept = mean(diff)) +
+  geom_hline(yintercept = mean(diff) + 2*sd.diff, linetype = 2) +
+  geom_hline(yintercept = mean(diff) - 2*sd.diff, linetype = 2) +
+  ylab("y - x") +
+  xlab("y + x / 2")
+
+
+##And now for the magic - we'll use 25 bins
+ggMarginal(diffplot, type="histogram", bins = 25)
+
+
+
+```
+
+
+####  prozentualer Bland Altman
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+
+diffplotp <- ggplot(validation.data, aes(mean.diff, diffp)) + 
+  geom_point(size=2, colour = rgb(0,0,0, alpha = 0.5)) + 
+  theme_bw() + 
+  geom_hline(yintercept = 0, linetype = 3) +
+  geom_hline(yintercept = mean(diffp)) +
+  geom_hline(yintercept = mean(diffp) + 2*sd.diffp, linetype = 2) +
+  geom_hline(yintercept = mean(diffp) - 2*sd.diffp, linetype = 2) +
+  ylab("y - x / mean %") +
+  xlab("y + x / 2") +
+  geom_text(aes(x = max(mean.diff)*0.8, y = mean(diffp), 
+                label =paste("bias", mean(diffp)), 
+                vjust = -1), parse = TRUE, size = 5)
+
+
+ggMarginal(diffplotp, type="histogram", bins = 25)
+
+
+```
+
+
+
+
+<!-- ## Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the ## R code that generated the plot. -->
+
+***Dieser muss noch verbessert werden!***
+
+### Schlussfolgerung und Freigabe
+
+<!-- User Input zur Beurteilung und Freigabe -->
+
+Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:  
+
+
+`r textAreaInput("fazit", "Deine Beurteilung:", rows=5, placeholder="Bitte Bewertung zu Messbereich, VK, Resultate des Passing Bablok, Bias")`
+`r dateInput("date", "Freigabe-Datum", width="12%")`
+`r textInput("name", "Dein Kürzel", width="12%", placeholder="Dein Kürzel")`
+
+
+
+  
+<!-- Informationen zum Dokument und CI   -->
+**Daten Analyse durchgeführt am `r format(Sys.time(), '%d %B, %Y')`**
+
+
+<img src="C:/Users/oliver.speer/Pictures/logo_pos.png" width="128" height="30" style="vertical-align:top">
+
+
