@@ -1,5 +1,3 @@
-
-
 ---
 output:
   word_document: default
@@ -13,8 +11,8 @@ output:
 output:
   html_document:
     css: "style.css"
-    fig_width: 7
-    fig_height: 6
+    fig_width: 10
+    fig_height: 10
     fig_caption: true
     df_print: paged
   pdf_document: default
@@ -22,19 +20,14 @@ output:
 date: "`r format(Sys.time(), '%A %d. %B %Y')`"
 ---
 
-
-
 ```{r setup, include=FALSE}
 library(knitr)
-library(shiny)
 library(parallel)
 library(robslopes)
 library(readxl)
 library(mcr)
 opts_chunk$set(echo = TRUE)
 ```
-
-
 
 <!-- Prepare libraries and import data from Excel -->
 
@@ -59,10 +52,13 @@ PB.reg@mnames[2] <- colnames(validation.data)[2]
 title: "`r paste("Validation: ", colnames(validation.data)[2],"vs", colnames(validation.data)[1])`"
 ---
 
-## Messdaten
+### Messdaten
 
 ```{r datatable, echo=FALSE}
-kable(MCResult.getData(PB.reg), caption = paste("x", colnames(validation.data)[1], "---y", colnames(validation.data)[2]))
+kable(MCResult.getData(PB.reg), caption = paste(
+  "S: sample Number;---x: ", colnames(validation.data)[1], ";---y: ", colnames(validation.data)[2]
+    )
+  )
 ```
 
 ### Korrelation
@@ -85,7 +81,7 @@ text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
 
 ```
 
-### Regression nach Passing Bablok
+### Passing Bablok
 
 <!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
 
@@ -108,8 +104,6 @@ text(40,10, sprintf("Alpha : %4.2f", alpha_ci))
 
 ### Bland-Altman
 
-> Hier könnte der Bland-Altman-Plot erscheinen:
-
 ```{r BA, echo=FALSE}
 MCResult.plotDifference(PB.reg)
 ```
@@ -118,12 +112,27 @@ MCResult.plotDifference(PB.reg)
 MCResult.plotDifference(PB.reg, plot.type = 8)
 ```
 
-<!-- ## Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the ## R code that generated the plot. -->
-
-***Dieser muss noch verbessert werden!***
 
 ### Schlussfolgerung und Freigabe
 
 <!-- User Input zur Beurteilung und Freigabe -->
 
-Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:
+Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:  
+|  
+|  
+|  
+|  
+|  
+---
+
+#### Data is processed using R language^1^ and mcr package^2^.  Rmarkdown^3^ is used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^4^ and Burak Bahar (Washington, USA)^5^.
+
+#### References and packages:
+
+1. R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: https://www.R-project.org
+2. mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: http://CRAN.R-project.org/package=mcr
+3. rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: http://rmarkdown.rstudio.com
+4. The Lab-R-torian: URL: https://labrtorian.com/
+5. An interactive website for analytical method comparison and bias estimation: URL: https://bahar.shinyapps.io/method_compare/
+
+
