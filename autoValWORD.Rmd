@@ -1,8 +1,8 @@
 ---
 output:
   word_document: default
-  pdf_document: default
   html_document: default
+  pdf_document: default
   '': default
   allways_allow_html: true
 ---
@@ -76,7 +76,7 @@ plot(method.x, method.y, pch = 19, col = "#68228B",
 abline(lm(method.y ~ method.x), col = "red", lwd = 3)
 
 ## Pearson correlation
-text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=40, y=10)
+text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=max(method.x)*0.8, y=max(method.y)*0.3)
 text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
 
 ```
@@ -96,9 +96,9 @@ gradient_est <- PB.reg@para[2]
 gradient_lci <- PB.reg@para[6]
 gradient_uci <- PB.reg@para[8]
 alpha_ci <- PB.reg@alpha[1]
-text(40,20,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
-text(40,15,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
-text(40,10, sprintf("Alpha : %4.2f", alpha_ci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.37,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.3,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.23, sprintf("Alpha : %4.2f", alpha_ci))
 
 ```
 
@@ -109,7 +109,18 @@ MCResult.plotDifference(PB.reg)
 ```
 
 ```{r BArel, echo=FALSE}
-MCResult.plotDifference(PB.reg, plot.type = 8)
+
+MCResult.plotDifference(PB.reg, plot.type = 8, main = "rel Difference plot")
+```
+
+```{r Bias, echo=FALSE}
+## Calculation of models
+m2 <- mcreg(method.x,method.y,method.reg="PaBa", method.ci="bootstrap",
+            method.bootstrap.ci="BCa",mref.name=colnames(validation.data)[1],
+            mtest.name=colnames(validation.data)[2], na.rm=TRUE)
+## Drawing of proportional bias
+plotBias(m2, ci.area=TRUE, ci.border=TRUE)
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.5)
 ```
 
 
