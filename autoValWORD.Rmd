@@ -1,23 +1,10 @@
 ---
 output:
-  html_document: default
   word_document: default
+  html_document: default
   pdf_document: default
   '': default
   allways_allow_html: true
----
-
----
-output:
-  html_document:
-    css: "style.css"
-    fig_width: 10
-    fig_height: 10
-    fig_caption: true
-    df_print: paged
-  pdf_document: default
-  '': default
-date: "`r format(Sys.time(), '%A %d. %B %Y')`"
 ---
 
 ```{r setup, include=FALSE}
@@ -38,7 +25,9 @@ opts_chunk$set(echo = TRUE)
 ```{r prepareData, echo=FALSE}
 
 ## Import Data from a xlsx file, create the vectors for reference x and test y
-validation.data <- read_xlsx("C:/R_local/Validation_Data.xlsx")
+validation.data <- read_excel("C:/R_local/vdata.xlsx", sheet = "DATA")
+val.crit <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "CRIT")
+val.info <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "INFO")
 method.x <- validation.data[[1]]
 method.y <- validation.data[[2]]
 ## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
@@ -49,8 +38,53 @@ PB.reg@mnames[2] <- colnames(validation.data)[2]
 ```
 
 ---
-title: "`r paste("Validation: ", colnames(validation.data)[2],"vs", colnames(validation.data)[1])`"
+title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 ---
+
+| QM-Dokumente |                                 |                                        |
+|----------------------------------|-------------------|-------------------|
+| Projekt      | `r paste(val.info$Projekt[1])`  | `r paste(val.info$Projekt_Titel[1])`   |
+| Mutation     | `r paste(val.info$Mutation[1])` | `r paste(val.info$Mutations_Titel[1])` |
+
+| Abteilung         |                                                          |     |
+|----------------------------------|-------------------|-------------------|
+|                   | `r paste(val.info$Abteilung[1],val.info$Unternehmen[1])` |     |
+| Durchführung      | `r paste("FV BMA Amanda Ferlez")`                        |     |
+|                   | `r paste("L-BMA Anina Kühne")`                           |     |
+| Fachliche Leitung | `r paste("Dr. Siegfried Stranders, FAMH")`               |     |
+
+| Analytik   |                                        |            |
+|------------|----------------------------------------|------------|
+| Material   | `r paste(val.info$Material[1])`        | Alternativ |
+| Messgrösse | `r paste(val.info$Messgröss[1])`       | Synonym    |
+| Einheit    | `r paste("[",val.info$Einheit[1],"]")` |            |
+
+| Bisher Methode x |                                                           |     |
+|-----------------|--------------------------------------|-----------------|
+| Labor            | `r paste(val.info$Unternehmen[2], val.info$Abteilung[2])` |     |
+| Methode          | `r paste(val.info$Methode[2])`                            |     |
+| Messinstrument   | `r paste(val.info$Messinstrument[2])`                     |     |
+| Lieferant        | `r paste(val.info$Kit[2])`                                |     |
+
+| Neue Methode y    |                                                                                           |     |
+|-----------------|--------------------------------------|-----------------|
+| Labor             | `r paste(val.info$Unternehmen[1], val.info$Abteilung[1])`                                 |     |
+| Methode           | `r paste(val.info$Methode[1])`                                                            |     |
+| Messinstrument    | `r paste(val.info$Messinstrument[1])`                                                     |     |
+| Lieferant         | `r paste(val.info$Kit[1])`                                                                |     |
+| Kit               | `r paste(val.info$Kit[1])`                                                                |     |
+| Messbereich       | `r paste(val.info$Messbereich_L[1], "-", val.info$Messbereich_H[1], val.info$Einheit[1])` |     |
+| Referenz Interval | `r paste(val.info$RefInterval_L[1], "-", val.info$RefInterval_H[1], val.info$Einheit[1])` |     |
+
+| Akzeptanzkriterien     |                                                            |     |
+|-----------------|--------------------------------------|-----------------|
+| Anzahl Doppelmessungen | `r paste("≥", val.crit$n[1])`                              |     |
+| VK intra-Assay         | `r paste("<", val.crit$intraVK[1], "%")`                   |     |
+| VK inter-Assay         | `r paste("<", val.crit$interVK[1], "%")`                   |     |
+| Korrelation r          | `r paste("≥", val.crit$Korr[1])`                           |     |
+| PaBa Regression        | `r paste("Steigung m 1.0 ± ", val.crit$PaBa_slope_H[1]-1)` |     |
+
+\newpage
 
 ### Messdaten
 
@@ -127,28 +161,28 @@ plotBias(m2, ci.area=TRUE, ci.border=TRUE, cex.sub=0.2)
 plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
 ```
 
-
+\newpage
 
 ### Schlussfolgerung und Freigabe
 
 <!-- User Input zur Beurteilung und Freigabe -->
 
-Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:  
-|  
-|  
-|  
-|  
-|  
+Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:\
+\|\
+\|\
+\|\
+\|\
+\|\
 ---
 
-#### Data is processed using R language^1^ and mcr package^2^.  Rmarkdown^3^ is used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^4^ and Burak Bahar (Washington, USA)^5^.
+**Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
+
+#### Data is processed using R language^1^ and mcr package^2^. Rmarkdown^3^ is used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^4^ and Burak Bahar (Washington, USA)^5^.
 
 #### References and packages:
 
-1. R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: https://www.R-project.org
-2. mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: http://CRAN.R-project.org/package=mcr
-3. rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: http://rmarkdown.rstudio.com
-4. The Lab-R-torian: URL: https://labrtorian.com/
-5. An interactive website for analytical method comparison and bias estimation: URL: https://bahar.shinyapps.io/method_compare/
-
-
+1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
+2.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
+3.  rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: <http://rmarkdown.rstudio.com>
+4.  The Lab-R-torian: URL: <https://labrtorian.com/>
+5.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
