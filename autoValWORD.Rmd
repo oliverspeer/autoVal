@@ -1,7 +1,7 @@
 ---
 output:
-  word_document: default
   html_document: default
+  word_document: default
   pdf_document: default
   '': default
   allways_allow_html: true
@@ -65,7 +65,7 @@ kable(MCResult.getData(PB.reg), caption = paste(
 
 <!-- Pearsson correlation and plot, sample number n from PB.reg@data -->
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, out.height = "80%", out.width = "80%"}
 
 ## Correlation plot with Pearsson correlation
 ## Creating the plot
@@ -76,7 +76,7 @@ plot(method.x, method.y, pch = 19, col = "#68228B",
 abline(lm(method.y ~ method.x), col = "red", lwd = 3)
 
 ## Pearson correlation
-text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=max(method.x)*0.8, y=max(method.y)*0.3)
+text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=max(method.x)*0.85, y=max(method.y)*0.1)
 text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
 
 ```
@@ -85,7 +85,7 @@ text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
 
 <!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
 
-```{r PB, echo=FALSE}
+```{r PB, echo=FALSE, out.height = "80%", out.width = "80%"}
 
 MCResult.plot(PB.reg, equal.axis = TRUE, x.lab = colnames(validation.data)[1], y.lab = colnames(validation.data)[2], points.col = "#68228B", points.pch = 19, ci.area = TRUE, ci.area.col = "#0000FF50", main = paste("Validation", colnames(validation.data)[2], "vs", colnames(validation.data)[1]), sub = "", add.cor = TRUE, cor.method = "spearman", add.grid = FALSE, points.cex = 1)
 ##Angabe Steigung und Achsenabschnitt und CI
@@ -96,32 +96,37 @@ gradient_est <- PB.reg@para[2]
 gradient_lci <- PB.reg@para[6]
 gradient_uci <- PB.reg@para[8]
 alpha_ci <- PB.reg@alpha[1]
-text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.37,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
-text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.3,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
-text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.23, sprintf("Alpha : %4.2f", alpha_ci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.34,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.27,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.2, sprintf("alpha : %4.2f", alpha_ci))
 
 ```
 
 ### Bland-Altman
 
-```{r BA, echo=FALSE}
+```{r BA, echo=FALSE, out.height = "80%", out.width = "80%"}
 MCResult.plotDifference(PB.reg)
 ```
 
-```{r BArel, echo=FALSE}
+```{r BArel, echo=FALSE, out.height = "80%", out.width = "80%"}
 
 MCResult.plotDifference(PB.reg, plot.type = 8, main = "rel Difference plot")
 ```
 
-```{r Bias, echo=FALSE}
+```{r Bias, echo=FALSE, out.height = "90%", out.width = "90%"}
 ## Calculation of models
 m2 <- mcreg(method.x,method.y,method.reg="PaBa", method.ci="bootstrap",
             method.bootstrap.ci="BCa",mref.name=colnames(validation.data)[1],
             mtest.name=colnames(validation.data)[2], na.rm=TRUE)
 ## Drawing of proportional bias
-plotBias(m2, ci.area=TRUE, ci.border=TRUE)
-plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.5)
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, cex.sub=0.2)
+
 ```
+
+```{r Bias prop, echo=FALSE, out.height = "90%", out.width = "90%"}
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
+```
+
 
 
 ### Schlussfolgerung und Freigabe
