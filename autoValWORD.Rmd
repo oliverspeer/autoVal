@@ -41,11 +41,6 @@ PB.reg@mnames[2] <- colnames(validation.data)[2]
 title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 ---
 
-| QM-Dokumente |                                 |                                        |
-|----------------------------------|-------------------|-------------------|
-| Projekt      | `r paste(val.info$Projekt[1])`  | `r paste(val.info$Projekt_Titel[1])`   |
-| Mutation     | `r paste(val.info$Mutation[1])` | `r paste(val.info$Mutations_Titel[1])` |
-
 | Abteilung         |                                                          |     |
 |----------------------------------|-------------------|-------------------|
 |                   | `r paste(val.info$Abteilung[1],val.info$Unternehmen[1])` |     |
@@ -84,13 +79,18 @@ title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 | Korrelation r          | `r paste("≥", val.crit$Korr[1])`                           |     |
 | PaBa Regression        | `r paste("Steigung m 1.0 ± ", val.crit$PaBa_slope_H[1]-1)` |     |
 
+| QM-Dokumente |                                 |                                        |
+|----------------------------------|-------------------|-------------------|
+| Projekt      | `r paste(val.info$Projekt[1])`  | `r paste(val.info$Projekt_Titel[1])`   |
+| Mutation     | `r paste(val.info$Mutation[1])` | `r paste(val.info$Mutations_Titel[1])` |
+
 \newpage
 
-### Messdaten
+### Messdaten  
 
 ```{r datatable, echo=FALSE}
 kable(MCResult.getData(PB.reg), caption = paste(
-  "S: sample Number;---x: ", colnames(validation.data)[1], ";---y: ", colnames(validation.data)[2]
+  "S: Sample Number;---x: ", colnames(validation.data)[1], ";---y: ", colnames(validation.data)[2]
     )
   )
 ```
