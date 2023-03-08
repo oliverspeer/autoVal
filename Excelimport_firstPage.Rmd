@@ -1,0 +1,74 @@
+---
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+  '': default
+  allways_allow_html: true
+---
+
+---
+output:
+  html_document:
+    css: "style.css"
+    fig_width: 10
+    fig_height: 10
+    fig_caption: true
+    df_print: paged
+  pdf_document: default
+  '': default
+date: "`r format(Sys.time(), '%A %d. %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(parallel)
+library(robslopes)
+library(readxl)
+library(mcr)
+opts_chunk$set(echo = TRUE)
+```
+
+<!-- Prepare libraries and import data from Excel -->
+
+<!-- create vectors method.x and method.y, run Passing Bablok regression -->
+
+<!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
+
+```{r prepareData, echo=FALSE}
+
+## Import Data from a xlsx file, create the vectors for reference x and test y
+
+val.crit <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "CRIT")
+val.info <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "INFO")
+val.data <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "DATA")
+
+method.x <- val.data[[1]]
+method.y <- val.data[[2]]
+## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
+PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+PB.reg@mnames[1] <- colnames(val.data)[1]
+PB.reg@mnames[2] <- colnames(val.data)[2]
+
+```
+
+# Validierungsbericht  
+ 
+
+## `r paste(val.info$Messgröss[1])`  
+------------------------------------
+  
+|**EINLEITUNG**| 
+
+
+
+Validierungsanalge zu QM-Dokumenten|              |
+---------------------------------- | ------------ | ----------------
+Projekt                            |`r paste(val.info$Projekt[1])`|`r paste(val.info$Projekt_Titel[1])`
+Mutation                           |`r paste(val.info$Mutation[1])`|`r paste(val.info$Mutations_Titel[1])`  
+  
+Validierungsanalge zu QM-Dokumenten|           |
+---------------------------------| ------------ | ----------------
+Projekt                          |`r paste(val.info$Projekt[1])`|`r paste(val.info$Projekt_Titel[1])`
+Mutation                         |`r paste(val.info$Mutation[1])`|`r paste(val.info$Mutations_Titel[1])`  
+
