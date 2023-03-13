@@ -7,7 +7,7 @@ output:
   allways_allow_html: true
 ---
 
-```{r setup, include=FALSE}
+```{r setup, include=FALSE, echo=FALSE, warning = FALSE, message = FALSE}
 library(knitr)
 library(parallel)
 library(robslopes)
@@ -22,7 +22,7 @@ opts_chunk$set(echo = TRUE)
 
 <!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
 
-```{r prepareData, echo=FALSE}
+```{r dataframe, comment = '', echo=FALSE, warning = FALSE, message = FALSE}
 
 ## Import Data from a xlsx file, create the vectors for reference x and test y
 validation.data <- read_excel("C:/R_local/vdata.xlsx", sheet = "DATA")
@@ -55,14 +55,14 @@ title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 | Einheit    | `r paste("[",val.info$Einheit[1],"]")` |            |
 
 | Bisher Methode x |                                                           |     |
-|-----------------|--------------------------------------|-----------------|
+|------------------|-------------------------------------|------------------|
 | Labor            | `r paste(val.info$Unternehmen[2], val.info$Abteilung[2])` |     |
 | Methode          | `r paste(val.info$Methode[2])`                            |     |
 | Messinstrument   | `r paste(val.info$Messinstrument[2])`                     |     |
 | Lieferant        | `r paste(val.info$Kit[2])`                                |     |
 
 | Neue Methode y    |                                                                                           |     |
-|-----------------|--------------------------------------|-----------------|
+|------------------|-------------------------------------|------------------|
 | Labor             | `r paste(val.info$Unternehmen[1], val.info$Abteilung[1])`                                 |     |
 | Methode           | `r paste(val.info$Methode[1])`                                                            |     |
 | Messinstrument    | `r paste(val.info$Messinstrument[1])`                                                     |     |
@@ -72,7 +72,7 @@ title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 | Referenz Interval | `r paste(val.info$RefInterval_L[1], "-", val.info$RefInterval_H[1], val.info$Einheit[1])` |     |
 
 | Akzeptanzkriterien     |                                                            |     |
-|-----------------|--------------------------------------|-----------------|
+|------------------|-------------------------------------|------------------|
 | Anzahl Doppelmessungen | `r paste("≥", val.crit$n[1])`                              |     |
 | VK intra-Assay         | `r paste("<", val.crit$intraVK[1], "%")`                   |     |
 | VK inter-Assay         | `r paste("<", val.crit$interVK[1], "%")`                   |     |
@@ -86,7 +86,7 @@ title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
 
 \newpage
 
-### Messdaten  
+### Messdaten
 
 ```{r datatable, echo=FALSE}
 kable(MCResult.getData(PB.reg), caption = paste(
@@ -135,6 +135,14 @@ text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.27,sprintf("Int
 text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.2, sprintf("alpha : %4.2f", alpha_ci))
 
 ```
+
+```{r coef plot, echo = FALSE, comment = '', warning = FALSE, message = FALSE}
+fit.lr <- mcreg(as.matrix(validation.data), method.reg="LinReg", na.rm=TRUE)
+fit.wlr <- mcreg(as.matrix(validation.data), method.reg="WLinReg", na.rm=TRUE)
+compareFit( fit.lr, fit.wlr )
+```
+
+\newpage
 
 ### Bland-Altman
 
