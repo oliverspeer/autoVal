@@ -9,6 +9,7 @@ output:
 
 ```{r setup, echo=FALSE}
 library(knitr)
+library(tidyverse)
 library(parallel)
 library(robslopes)
 library(readxl)
@@ -28,6 +29,10 @@ library(readxl)
 validation.data <- read_excel("C:/R_local/vdata.xlsx", sheet = "DATA")
 val.crit <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "CRIT")
 val.info <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "INFO")
+
+val.prec <- read_excel(
+    "C:/R_local/vdata.xlsx", sheet = "PREC"
+)
 
 method.x <- validation.data[[1]]
 method.y <- validation.data[[2]]
@@ -100,6 +105,22 @@ table.one$"delta.%" <- ((table.one[[3]]-table.one[[2]])
 
 kable(table.one, digits = 1, "simple")
 ```
+
+### Präzision
+
+```{r intra- and inter-assay coefficient of variability, echo = FALSE, message = FALSE}
+library(tidyverse)
+
+cv <- function(x){sd(x)*100/mean(x)}
+
+prec.data <- val.prec |> select(Messwert_intra1, Messwert_intra2, Messwert_inter1, Messwert_inter2)
+
+prec.data.stat <- prec.data |> summarize(n=n(), across(Messwert_intra1:Messwert_inter2, 
+                                     list(Mittelwert = \(x) mean(x, na.rm = TRUE), 
+                                          StabW = \(x) sd(x, na.rm = TRUE),
+                                          VK = \(x) cv(x))),)
+```
+
 
 ### Korrelation
 
