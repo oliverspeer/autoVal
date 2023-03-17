@@ -1,19 +1,20 @@
 ---
 output:
-  html_document: default
-  pdf_document: default
   word_document: default
+  pdf_document: default
+  html_document: default
   '': default
   allways_allow_html: true
 ---
 
-```{r setup, echo=FALSE}
+```{r setup, echo=FALSE, message = FALSE}
 library(knitr)
 library(tidyverse)
 library(parallel)
 library(robslopes)
 library(readxl)
 library(mcr)
+library(flextable)
 opts_chunk$set(echo = TRUE)
 ```
 
@@ -23,7 +24,7 @@ opts_chunk$set(echo = TRUE)
 
 <!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
 
-```{r Datentabelle, echo=FALSE}
+```{r Datentabelle, echo=FALSE, message = FALSE}
 library(readxl)
 ## Import Data from a xlsx file, create the vectors for reference x and test y
 validation.data <- read_excel("C:/R_local/vdata.xlsx", sheet = "DATA")
@@ -110,15 +111,72 @@ kable(table.one, digits = 1, "simple")
 
 ```{r intra- and inter-assay coefficient of variability, echo = FALSE, message = FALSE}
 library(tidyverse)
+library(flextable)
 
 cv <- function(x){sd(x)*100/mean(x)}
 
 prec.data <- val.prec |> select(Messwert_intra1, Messwert_intra2, Messwert_inter1, Messwert_inter2)
 
-prec.data.stat <- prec.data |> summarize(n=n(), across(Messwert_intra1:Messwert_inter2, 
-                                     list(Mittelwert = \(x) mean(x, na.rm = TRUE), 
-                                          StabW = \(x) sd(x, na.rm = TRUE),
-                                          VK = \(x) cv(x))),)
+prec.data.stat <-
+  prec.data |> summarize(n = n(), across(
+    Messwert_intra1:Messwert_inter2,
+    list(
+      Mittelwert = \(x) round(mean(x, na.rm = TRUE), digits = 2),
+      StabW = \(x) round(sd(x, na.rm = TRUE), digits = 2),
+      VK = \(x) round(cv(x), digits = 1)
+    )
+  ), )
+
+
+
+intra.df <- data.frame(
+  "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  L = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_intra1[1]),
+    paste(prec.data.stat$Messwert_intra1_Mittelwert),
+    paste(prec.data.stat$Messwert_intra1_StabW),
+    paste(prec.data.stat$Messwert_intra1_VK)
+  ),
+  H = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_intra2[1]),
+    paste(prec.data.stat$Messwert_intra2_Mittelwert),
+    paste(prec.data.stat$Messwert_intra2_StabW),
+    paste(prec.data.stat$Messwert_intra2_VK)
+  )
+)
+
+inter.df <- data.frame(
+  "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  L = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter1[1]),
+    paste(prec.data.stat$Messwert_inter1_Mittelwert),
+    paste(prec.data.stat$Messwert_inter1_StabW),
+    paste(prec.data.stat$Messwert_inter1_VK)
+  ),
+  H = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter2[1]),
+    paste(prec.data.stat$Messwert_inter2_Mittelwert),
+    paste(prec.data.stat$Messwert_inter2_StabW),
+    paste(prec.data.stat$Messwert_inter2_VK)
+  )
+)
+
+
+intra.df.ft <- flextable(intra.df)
+intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
+intra.df.ft <- autofit(intra.df.ft)
+intra.df.ft |> bg(bg = "grey", part = "header")
+
+inter.df.ft <- flextable(inter.df)
+inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
+inter.df.ft <- autofit(inter.df.ft)
+inter.df.ft |> bg(bg = "grey", part = "header")
+
+
 ```
 
 
