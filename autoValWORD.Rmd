@@ -1,6 +1,7 @@
 ---
 output:
-  word_document: default
+  word_document:
+    reference_docx: "autoValWORD.docx"
   pdf_document: default
   html_document: default
   '': default
@@ -8,6 +9,7 @@ output:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE}
+
 library(knitr)
 library(tidyverse)
 library(parallel)
@@ -15,7 +17,9 @@ library(robslopes)
 library(readxl)
 library(mcr)
 library(flextable)
-opts_chunk$set(echo = TRUE)
+set_flextable_defaults(font.size = 11, padding = 3)
+use_df_printer()
+opts_chunk$set(echo = TRUE, ft.align="center")
 ```
 
 <!-- Prepare libraries and import data from Excel -->
@@ -45,67 +49,43 @@ PB.reg@mnames[2] <- colnames(validation.data)[2]
 ```
 
 ---
-title: "`r paste("Validierungsbericht", val.info$Messgröss[1])`"
+title: "`r paste("Validierungsbericht", val.info$x[1])`"
 ---
 
-| Abteilung         |                                                          |     |
-|----------------------------------|-------------------|-------------------|
-|                   | `r paste(val.info$Abteilung[1],val.info$Unternehmen[1])` |     |
-| Durchführung      | `r paste("FV BMA Amanda Ferlez")`                        |     |
-|                   | `r paste("L-BMA Anina Kühne")`                           |     |
-| Fachliche Leitung | `r paste("Dr. Siegfried Stranders, FAMH")`               |     |
+```{r cover table, echo = FALSE, message = FALSE}
 
-| Analytik   |                                        |            |
-|------------|----------------------------------------|------------|
-| Material   | `r paste(val.info$Material[1])`        | Alternativ |
-| Messgrösse | `r paste(val.info$Messgröss[1])`       | Synonym    |
-| Einheit    | `r paste("[",val.info$Einheit[1],"]")` |            |
+val.info |>  flextable() |> 
+  bold(i = c(1, 11, 15, 18)) |> 
+  theme_vanilla() |>   
+  bg(bg = "darkgrey", i = 1) |> 
+  bg(bg = "lightgrey", i = c(11, 15, 18)) |> 
+  set_table_properties(width = 0.8, layout = "autofit") |> 
+  colformat_date(fmt_date = "%d/%m/%Y")
 
-| Bisher Methode x |                                                           |     |
-|------------------|-------------------------------------|------------------|
-| Labor            | `r paste(val.info$Unternehmen[2], val.info$Abteilung[2])` |     |
-| Methode          | `r paste(val.info$Methode[2])`                            |     |
-| Messinstrument   | `r paste(val.info$Messinstrument[2])`                     |     |
-| Lieferant        | `r paste(val.info$Kit[2])`                                |     |
+```
 
-| Neue Methode y    |                                                                                           |     |
-|------------------|-------------------------------------|------------------|
-| Labor             | `r paste(val.info$Unternehmen[1], val.info$Abteilung[1])`                                 |     |
-| Methode           | `r paste(val.info$Methode[1])`                                                            |     |
-| Messinstrument    | `r paste(val.info$Messinstrument[1])`                                                     |     |
-| Lieferant         | `r paste(val.info$Kit[1])`                                                                |     |
-| Kit               | `r paste(val.info$Kit[1])`                                                                |     |
-| Messbereich       | `r paste(val.info$Messbereich_L[1], "-", val.info$Messbereich_H[1], val.info$Einheit[1])` |     |
-| Referenz Interval | `r paste(val.info$RefInterval_L[1], "-", val.info$RefInterval_H[1], val.info$Einheit[1])` |     |
-
-| Akzeptanzkriterien     |                                                            |     |
-|------------------|-------------------------------------|------------------|
-| Anzahl Doppelmessungen | `r paste("≥", val.crit$n[1])`                              |     |
-| VK intra-Assay         | `r paste("<", val.crit$intraVK[1], "%")`                   |     |
-| VK inter-Assay         | `r paste("<", val.crit$interVK[1], "%")`                   |     |
-| Korrelation r          | `r paste("≥", val.crit$Korr[1])`                           |     |
-| PaBa Regression        | `r paste("Steigung m 1.0 ± ", val.crit$PaBa_slope_H[1]-1)` |     |
-
-| QM-Dokumente |                                 |                                        |
-|----------------------------------|-------------------|-------------------|
-| Projekt      | `r paste(val.info$Projekt[1])`  | `r paste(val.info$Projekt_Titel[1])`   |
-| Mutation     | `r paste(val.info$Mutation[1])` | `r paste(val.info$Mutations_Titel[1])` |
 
 \newpage
 
 ### Messdaten  
   
-```{r datatable, echo=FALSE}
+```{r datatable, echo = FALSE, warning = FALSE, message = FALSE}
 table.one <- data.frame(seq.int(nrow(validation.data)),validation.data)
 colnames(table.one)[1] = "# "
 
-table.one$"delta.%" <- ((table.one[[3]]-table.one[[2]])
-                        *100/mean(table.one[[2]]+table.one[[3]]))
+table.one$"delta.%" <- (round((table.one[[3]]-table.one[[2]])
+                        *100/mean(table.one[[2]]+table.one[[3]]), digits = 1))
 
-
-
-kable(table.one, digits = 1, "simple")
+table.one |> 
+  flextable() |>  
+  theme_vanilla() |>  
+  bg(bg = "grey", part = "header") |> 
+  align(align = "center", part = "all") |> 
+  bg(j = 4, bg = scales::col_numeric(palette = c("red", "green", "yellow"), domain = c(-20, 20))) |> 
+  set_table_properties(width = 0.5, layout = "autofit")
 ```
+
+\newpage
 
 ### Präzision
 
@@ -113,9 +93,15 @@ kable(table.one, digits = 1, "simple")
 library(tidyverse)
 library(flextable)
 
-cv <- function(x){sd(x)*100/mean(x)}
+cv <- function(x) {
+  sd(x) * 100 / mean(x)
+}
 
-prec.data <- val.prec |> select(Messwert_intra1, Messwert_intra2, Messwert_inter1, Messwert_inter2)
+prec.data <-
+  val.prec |> select(Messwert_intra1,
+                     Messwert_intra2,
+                     Messwert_inter1,
+                     Messwert_inter2)
 
 prec.data.stat <-
   prec.data |> summarize(n = n(), across(
@@ -125,7 +111,7 @@ prec.data.stat <-
       StabW = \(x) round(sd(x, na.rm = TRUE), digits = 2),
       VK = \(x) round(cv(x), digits = 1)
     )
-  ), )
+  ),)
 
 
 
@@ -166,16 +152,24 @@ inter.df <- data.frame(
 )
 
 
+```
+
+
+```{r intra assay table, echo = FALSE, message = FALSE, warning = FALSE}
 intra.df.ft <- flextable(intra.df)
 intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
 intra.df.ft <- autofit(intra.df.ft)
+intra.df.ft <- add_footer_lines(intra.df.ft, "")
 intra.df.ft |> bg(bg = "grey", part = "header")
 
+```
+  
+
+```{r inter assay table, echo = FALSE, message = FALSE, warning = FALSE}
 inter.df.ft <- flextable(inter.df)
 inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
 inter.df.ft <- autofit(inter.df.ft)
 inter.df.ft |> bg(bg = "grey", part = "header")
-
 
 ```
 
