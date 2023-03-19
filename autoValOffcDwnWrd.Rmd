@@ -18,6 +18,8 @@ library(tidyverse)
 library(parallel)
 library(robslopes)
 library(readxl)
+library(officedown)
+library(officer)
 library(mcr)
 library(flextable)
 set_flextable_defaults(font.size = 11, padding = 3)
@@ -62,7 +64,7 @@ val.info |>  flextable() |>
   theme_vanilla() |>   
   bg(bg = "darkgrey", i = 1) |> 
   bg(bg = "lightgrey", i = c(11, 15, 17)) |> 
-  set_table_properties(width = 1, layout = "autofit") |> 
+  set_table_properties(width = 0.8, layout = "autofit") |> 
   colformat_date(fmt_date = "%d/%m/%Y")
 
 ```
@@ -261,22 +263,31 @@ plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
 
 <!-- User Input zur Beurteilung und Freigabe -->
 
-Bitte gib hier Deine Beurteilung der vorliegenden Verifikation/Validation ein:\
-\|\
-\|\
-\|\
-\|\
-\|\
+
+
+```{r Schlussfolgerung, echo = FALSE}
+block_pour_docx("blocks_Akzeptanzkriterien.docx")
+```
 ---
 
 **Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
 
-#### Data is processed using R language^1^ and mcr package^2^. Rmarkdown^3^ is used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^4^ and Burak Bahar (Washington, USA)^5^.
+\newpage
 
+--- 
+
+#### Data is processed using R language^1^, mcr package^2^ and flextable package^3^. Rmarkdown^4^, Officedown^5^ and Officer^6^ are used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^7^, Burak Bahar (Washington, USA)^8^ and David Gohel (Roubaix, F)^9^.
+  
 #### References and packages:
-
+  
 1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
 2.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
-3.  rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: <http://rmarkdown.rstudio.com>
-4.  The Lab-R-torian: URL: <https://labrtorian.com/>
-5.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+3.  flextable: a framework for easily creating tables. Version: `r packageDescription("flextable")$Version` URL: <http://CRAN.R-project.org/package=flextable>
+4.  rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: <http://rmarkdown.rstudio.com>
+5.  officedown: Formatting Microsoft documents produced by RMarkdown. R Version: `r packageDescription("officedown")$Version` URL: <http://CRAN.R-project.org/package=officedown>
+6.  officer: Manipulation of Microsoft Word and PowerPoint Documents. R Version: `r packageDescription("officer")$Version` URL: <http://CRAN.R-project.org/package=officer>
+7.  The Lab-R-torian: URL: <https://labrtorian.com/>
+8.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+9.  SOLUTIONS ET FORMATIONS EN DATA-SCIENCE: URL: <https://www.ardata.fr/>
+
+---

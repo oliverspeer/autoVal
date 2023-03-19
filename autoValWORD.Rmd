@@ -8,7 +8,7 @@ output:
   allways_allow_html: true
 ---
 
-```{r setup, echo=FALSE, message = FALSE}
+```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
 
 library(knitr)
 library(tidyverse)
@@ -35,9 +35,7 @@ validation.data <- read_excel("C:/R_local/vdata.xlsx", sheet = "DATA")
 val.crit <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "CRIT")
 val.info <- read_excel("C:\\R_local\\vdata.xlsx", sheet = "INFO")
 
-val.prec <- read_excel(
-    "C:/R_local/vdata.xlsx", sheet = "PREC"
-)
+val.prec <- read_excel("C:/R_local/vdata.xlsx", sheet = "PREC")
 
 method.x <- validation.data[[1]]
 method.y <- validation.data[[2]]
@@ -55,7 +53,7 @@ title: "`r paste(val.info$x[1])`"
 # Einleitung 
 
 
-```{r cover table, echo = FALSE, message = FALSE}
+```{r cover table, echo = FALSE, message = FALSE, warning = FALSE}
 
 val.info |>  flextable() |> 
   bold(i = c(1, 11, 15, 18)) |> 
@@ -85,7 +83,7 @@ table.one |>
   bg(bg = "grey", part = "header") |> 
   align(align = "center", part = "all") |> 
   bg(j = 4, bg = scales::col_numeric(palette = c("red", "green", "yellow"), domain = c(-20, 20))) |> 
-  set_table_properties(width = 0.5, layout = "autofit")
+  set_table_properties(width = 0.2, layout = "autofit")
 ```
 
 \newpage
