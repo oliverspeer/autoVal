@@ -1,7 +1,7 @@
 ---
 output:
   word_document:
-    reference_docx: "autoValWORD.docx"
+    reference_docx: "Formatvorlage_autoValWORD.docx"
   pdf_document: default
   html_document: default
   '': default
@@ -19,7 +19,7 @@ library(mcr)
 library(flextable)
 set_flextable_defaults(font.size = 11, padding = 3)
 use_df_printer()
-opts_chunk$set(echo = TRUE, ft.align="center")
+opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
 ```
 
 <!-- Prepare libraries and import data from Excel -->
@@ -49,8 +49,11 @@ PB.reg@mnames[2] <- colnames(validation.data)[2]
 ```
 
 ---
-title: "`r paste("Validierungsbericht", val.info$x[1])`"
----
+title: "`r paste(val.info$x[1])`"  
+---  
+  
+# Einleitung 
+
 
 ```{r cover table, echo = FALSE, message = FALSE}
 
@@ -66,8 +69,8 @@ val.info |>  flextable() |>
 
 
 \newpage
-
-### Messdaten  
+# ZUSAMMENFASSUNG DER MESSERGEBNISSE UND DATENAUSWERTUNG
+## Messdaten, Mittelwerte und Differenzen 
   
 ```{r datatable, echo = FALSE, warning = FALSE, message = FALSE}
 table.one <- data.frame(seq.int(nrow(validation.data)),validation.data)
@@ -87,7 +90,7 @@ table.one |>
 
 \newpage
 
-### Präzision
+## Präzisionsdaten
 
 ```{r intra- and inter-assay coefficient of variability, echo = FALSE, message = FALSE}
 library(tidyverse)
@@ -174,7 +177,7 @@ inter.df.ft |> bg(bg = "grey", part = "header")
 ```
 
 
-### Korrelation
+## Korrelation
 
 <!-- Pearsson correlation and plot, sample number n from PB.reg@data -->
 
@@ -194,7 +197,9 @@ text(paste("n=", nrow(PB.reg@data)), x=40, y=5)
 
 ```
 
-### Passing Bablok
+
+\newpage
+## Passing Bablok
 
 <!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
 
@@ -223,7 +228,7 @@ compareFit(fit.lr, fit.PaBa)
 
 \newpage
 
-### Bland-Altman
+## Bland-Altman
 
 ```{r BA, echo=FALSE, out.height = "80%", out.width = "80%"}
 MCResult.plotDifference(PB.reg)
@@ -250,7 +255,9 @@ plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
 
 \newpage
 
-### Schlussfolgerung und Freigabe
+# Schlussfolgerung und Freigabe
+
+
 
 <!-- User Input zur Beurteilung und Freigabe -->
 
