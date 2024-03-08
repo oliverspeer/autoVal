@@ -4,12 +4,21 @@ format: html
 editor: visual
 ---
 
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+#prepare libraries
+library(readxl)
+library(data.table)
+library(tidyverse)
+
+```
+
 # Daten einlesen
 
 ```{r}
 # function to read multiple files --------------------------------------
 fun.read.multi.excel.data <- function(file.pattern, dt.name) {
-  data.path <- "/home/olli/R_local/labStat"
+  #data.path <- "C:/R_local/labStat"
+  data.path <- getwd()
   files <- list.files(data.path, pattern = file.pattern)
   all.data <- list()
   
@@ -121,13 +130,19 @@ return(dt_name)
 
 ```
 
+```{r, warning=FALSE, message=FALSE}
+# set working directory ----------------------------------------------------
+setwd("C:/R_local/autoVal")
 
-```{r}
-#prepare libraries
-library(readxl)
-library(data.table)
 ```
 
+
+
+```{r, warning=FALSE, message=FALSE}
+# DxI data (read excel, tidy up data)  -------------------------------------
+dxi.data <- fun.read.multi.excel.data("BlutDxI", "dxi.data")
+DT.tidy.dxi <- fun.write.tidy.data(dxi.data, "DT.tidy.dxi")
+```
 
 ```{r}
 #read data
