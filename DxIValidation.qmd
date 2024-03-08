@@ -1,0 +1,29 @@
+---
+title: "DxI9000Validation"
+format: html
+editor: visual
+---
+
+# Daten einlesen
+```{r}
+#prepare libraries
+library(readxl)
+library(data.table)
+
+#read data
+val.dat <- read_excel("240307rawdata.xlsx")
+pat.dat <- read_excel("BlutDxI_240301_240307.xlsx")
+setDT(pat.dat)
+setDT(val.dat)
+
+#add key to join data
+val.dat[, key.val := as.numeric(substr(as.character(SampleID),1 ,10))]
+pat.dat[, key.pat := as.numeric(Probennummer)]
+
+#join data
+val.dat <- val.dat[pat.dat, Ferritin2 := i.Ferritin, on = "key.val == key.pat"]
+
+# copy val.dat$Ferritin2 and val.dat$Ferritin to a new data.table
+val.dat2 <- val.dat[TestName == "Ferritin",][, .(SampleID, TestName, DoseResult, DoseUnit, Ferritin2)]
+
+```

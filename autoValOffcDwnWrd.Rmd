@@ -78,14 +78,15 @@ val.info |>  flextable() |>
 table.one <- data.frame(seq.int(nrow(validation.data)),validation.data)
 colnames(table.one)[1] = "# "
 
-table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
+# table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
+table.one$"delta.%" <- (round((100-table.one[[2]]*100/table.one[[3]]), digits = 1))
 
 table.one |> 
   flextable() |>  
   theme_vanilla() |>  
   bg(bg = "grey", part = "header") |> 
   align(align = "center", part = "all") |> 
-  bg(j = 4, bg = scales::col_numeric(palette = c("red", "green", "yellow"), domain = c(-40, 40))) |> 
+  bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
   set_table_properties(width = 0.5, layout = "autofit")
 ```
 
