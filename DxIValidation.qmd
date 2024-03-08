@@ -5,14 +5,134 @@ editor: visual
 ---
 
 # Daten einlesen
+
+```{r}
+# function to read multiple files --------------------------------------
+fun.read.multi.excel.data <- function(file.pattern, dt.name) {
+  data.path <- "/home/olli/R_local/labStat"
+  files <- list.files(data.path, pattern = file.pattern)
+  all.data <- list()
+  
+  for (file.name in files) {
+    full.path <- file.path(data.path, file.name)
+    
+    # Read the header
+       head <- tryCatch( read_excel(full.path, n_max = 2, col_names = F, 
+                        .name_repair = "minimal") )
+    
+       # Detect NA cells in the second row  , replace them with letters 
+    head[2, which(is.na(head[2, ]))] <- as.list(letters[1:length(which(is.na(head[2, ])))])
+  
+      # Combine the first and second row to create the column names
+    head <- apply(head, 2, function(x) paste(rev(x), collapse = "_"))
+    
+
+    
+    # Read the data while skipping the first two rows and using the combined column names
+    dt <- tryCatch( readxl::read_excel(full.path, skip = 2, col_names = head) )
+    
+    # Removing "a_", "b_", ..., "z_" from the column names
+    colnames(dt) <- gsub("^[a-z]_", "", colnames(dt))
+    
+    # Convert the data.frame to a data.table
+    setDT(dt)  
+     
+    
+    # Remove specific columns to anonymize the data
+    dt[, c("Name", "Vorname") := NULL]
+    
+    # Define and exclude certain columns from conversion to numeric
+    exclude.cols <- c("Tagesnummer", "Geb.datum", "Geschl.", "Auftragg.")
+    include.cols <- setdiff(names(dt), exclude.cols)
+    
+    
+    # Convert included columns to numeric
+    for (col in include.cols) {
+      dt[, (col) := as.numeric(get(col))]
+    }
+    
+   
+    dt[, Geb.datum := as.POSIXct(Geb.datum, format = "%d.%m.%Y")]
+    
+    
+    # Store the processed data table in a list
+    all.data[[file.name]] <- dt
+  }
+  
+  # Combine all processed data.tables
+  dt.name <- rbindlist(all.data, use.names = TRUE, fill = TRUE)
+  
+  # new column `sex` with 0 if Dt.wide.pth$f_Geschl. == "F" and 1 if Dt.wide.pth$f_Geschl. == "M"
+  dt.name$sex <- ifelse(dt.name$Geschl. == "F", 0, 1)
+  
+  # calculate the age from dt.name$Datum and dt.name$e_Geb.datum
+  dt.name <- dt.name[
+    !grepl("Tagesnummer", Tagesnummer) & !is.na(Tagesnummer)
+  ][, Datum := ymd(substr(Tagesnummer, 1, 10))
+  ]
+  
+  dt.name[, Datum := ymd(Datum)
+          ][, Geb.datum := ymd(Geb.datum)
+            ][, Alter := interval(start = Geb.datum, end = Datum) / years(1)]
+  return(dt.name)
+}
+
+# function to tidy up data --------------------------------------
+fun.write.tidy.data<- function(data, 
+                               #tarif, 
+                               dt_name) {
+
+# prepare  id.cols that are not to be melted
+id.cols <- names(data)[!grepl("_\\d+", names(data))]
+
+# Melt the data.table
+DT.m1 = melt(
+  data,
+  id.vars = id.cols,
+  variable.name = "Bezeichnung_Methode",
+  value.name = "Werte",
+  na.rm = TRUE
+)
+
+# Split 'Bezeichnung_Methode' into two columns 'Bezeichnung' and 'Methode'
+DT.m1[, c("Bezeichnung", "Methode") := tstrsplit(Bezeichnung_Methode, "_", fixed = TRUE)
+      ][, Bezeichnung_Methode := NULL][, Methode := as.numeric(Methode)]
+
+dt_name <- setDT(DT.m1)
+
+# Merge the data.tables DT.m1 and tarif.scales on 'Methode'
+
+# dt_name <-
+#   left_join(
+#     DT.m1,
+#     tarif,
+#     by = c("Methode"),
+#     keep = FALSE,
+#     multiple = "any"
+#   )
+# setDT(dt_name)
+# 
+# dt_name[, c("Bezeichnung.y", "Tagesnummer.y") := NULL]
+# setnames(dt_name, "Bezeichnung.x", "Bezeichnung")
+# setnames(dt_name, "Tagesnummer.x", "Tagesnummer")
+return(dt_name)
+}
+
+
+```
+
+
 ```{r}
 #prepare libraries
 library(readxl)
 library(data.table)
+```
 
+
+```{r}
 #read data
 val.dat <- read_excel("240307rawdata.xlsx")
-pat.dat <- read_excel("BlutDxI_240301_240307.xlsx")
+pat.dat <- DT.tidy.dxi
 setDT(pat.dat)
 setDT(val.dat)
 
