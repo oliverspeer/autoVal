@@ -39,20 +39,21 @@ DXI.testName <- val.dat[, .(TestOrderCode, TestName)]
 dist.mat <- matrix(nrow = nrow(query.bez.result), ncol = nrow(DXI.testName))
 
 # function to adjust for abbreviation
-adjust_for_abbreviation <- function("Procalcitonin quant. (PCT)", "PCT", method = "jw") {
-  base_distance <- stringdist::stringdist("Procalcitonin quant. (PCT)", "PCT", method = method)
+adjust_for_abbreviation <- function(string1, string2, method = "lcs") {
+  base_distance <- stringdist::stringdist(string1, string2, method = method, nthread = 4)
   
   # Simple heuristic: if one string is a subset of the other, consider it a potential abbreviation
-  if (grepl("Procalcitonin quant. (PCT)", "PCT") | grepl("Procalcitonin quant. (PCT)", "PCT")) {
-    base_distance <- base_distance / 2  # Adjusting the score to reflect higher similarity
+  if (grepl(string1, string2) | grepl(string2, string1)) {
+    base_distance <- base_distance / 4  # Adjusting the score to reflect higher similarity
   }
   return(base_distance)
 }
 
+
 # calculate distances
 for (i in 1:nrow(query.bez.result)) {
   for (j in 1:nrow(DXI.testName)) {
-    dist.mat[i, j] <- stringdist(query.bez.result$Bezeichnung[i], DXI.testName$TestName[j], method = "jw")
+    dist.mat[i, j] <- adjust_for_abbreviation(query.bez.result$Bezeichnung[i], DXI.testName$TestName[j])
   }
 }
 
