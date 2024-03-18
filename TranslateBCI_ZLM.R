@@ -35,34 +35,44 @@ setDT(val.dat)
 # extract $ TestOrderCode and $ TestName into a new data.table
 DXI.testName <- val.dat[, .(TestOrderCode, TestName)] |> unique()
 
-# create a matrix to store distances between query.bez.result$Bezeichnung and DXI.testName$TestName
+# Combined function for string distance measurement & check for key term- and abbreviations-presence
+adjust_for_key_terms_and_abbreviation <- function(string1, string2, method = "osa", key_terms = c("t3")) {
+  
+  # Calculate string distance
+  base_distance <- stringdist(tolower(string1), tolower(string2), method = method, nthread = 4)
+  
+  # Adjust for key terms
+  for (term in key_terms) {
+    if (grepl(term, tolower(string1)) && grepl(term, tolower(string2))) {
+      base_distance <- base_distance / 2 # Adjusting the score for key term presence
+    }
+  }
+  
+  # Adjust for potential abbreviation (one string is a subset of the other)
+  # Simple heuristic: if one string is a subset of the other, consider it a potential abbreviation
+  if (grepl(tolower(string1), tolower(string2)) | grepl(tolower(string2), tolower(string1))) {
+    base_distance <- base_distance / 8 # Further adjusting the score for abbreviation
+  }
+  
+  return(base_distance)
+}
+
+# Assuming query.bez.result and DXI.testName data frames are already defined
+
+# Create a matrix to store distances
 dist.mat <- matrix(nrow = nrow(query.bez.result), ncol = nrow(DXI.testName))
 rownames(dist.mat) <- query.bez.result$Bezeichnung
 colnames(dist.mat) <- DXI.testName$TestName
 
-# function to adjust for abbreviation
-adjust_for_abbreviation <- function(string1, string2, method = "osa") {
-  base_distance <- stringdist::stringdist(string1, string2, method = method, nthread = 4)
-  
-  # Simple heuristic: if one string is a subset of the other, consider it a potential abbreviation
-  if (grepl(string1, string2) | grepl(string2, string1)) {
-    base_distance <- base_distance / 8  # Adjusting the score to reflect higher similarity
-  }
-  return(base_distance)
-}
-
-
-# calculate distances
+# Calculate distances using the combined custom function
 for (i in 1:nrow(query.bez.result)) {
   for (j in 1:nrow(DXI.testName)) {
-    dist.mat[i, j] <- adjust_for_abbreviation(query.bez.result$Bezeichnung[i], DXI.testName$TestName[j])
+    dist.mat[i, j] <- adjust_for_key_terms_and_abbreviation(query.bez.result$Bezeichnung[i], DXI.testName$TestName[j])
   }
 }
 
-# find the closest match
+# Find the closest match
 closest.match <- apply(dist.mat, 1, which.min)
 
-# add the closest match to query.bez.result
+# Add the closest match to query.bez.result
 query.bez.result$closest.match <- DXI.testName$TestName[closest.match]
-
-
