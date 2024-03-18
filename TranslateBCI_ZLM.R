@@ -33,18 +33,20 @@ val.dat <- read_excel("240307rawdata.xlsx")
 setDT(val.dat)
 
 # extract $ TestOrderCode and $ TestName into a new data.table
-DXI.testName <- val.dat[, .(TestOrderCode, TestName)]
+DXI.testName <- val.dat[, .(TestOrderCode, TestName)] |> unique()
 
 # create a matrix to store distances between query.bez.result$Bezeichnung and DXI.testName$TestName
 dist.mat <- matrix(nrow = nrow(query.bez.result), ncol = nrow(DXI.testName))
+rownames(dist.mat) <- query.bez.result$Bezeichnung
+colnames(dist.mat) <- DXI.testName$TestName
 
 # function to adjust for abbreviation
-adjust_for_abbreviation <- function(string1, string2, method = "lcs") {
+adjust_for_abbreviation <- function(string1, string2, method = "osa") {
   base_distance <- stringdist::stringdist(string1, string2, method = method, nthread = 4)
   
   # Simple heuristic: if one string is a subset of the other, consider it a potential abbreviation
   if (grepl(string1, string2) | grepl(string2, string1)) {
-    base_distance <- base_distance / 4  # Adjusting the score to reflect higher similarity
+    base_distance <- base_distance / 8  # Adjusting the score to reflect higher similarity
   }
   return(base_distance)
 }
