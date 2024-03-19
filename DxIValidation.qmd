@@ -78,10 +78,6 @@ setwd("C:/R_local/autoVal")
 
 ```
 
-
-
-
-
 ```{r}
 #read data
 val.dat <- read_excel("240307rawdata.xlsx")
