@@ -24,7 +24,35 @@ setwd("C:/R_local/autoVal")
 val.dat <- read_excel("240307rawdata.xlsx")
 setDT(val.dat)
 
-# construct a dynamic SQL query
+# automatically create a SQL TABLE containing DxI9000 data
+# function to map R data types to SQLite data types
+map_data_types <- function(df) {
+  sapply(df, function(column) {
+    dtype <- class(column)[1]  # Get the class of the column. If multiple, take the first.
+    switch(dtype,
+           "factor" = "TEXT",
+           "character" = "TEXT",
+           "integer" = "INTEGER",
+           "numeric" = "REAL",
+           "Date" = "TEXT",  # SQLite does not have a DATE type, so dates are often stored as TEXT
+           "POSIXct" = "TEXT",  # or as INTEGER (Unix Time)
+           "logical" = "INTEGER",  # TRUE/FALSE mapped to 1/0
+           "UNKNOWN")  # Default case if type not matched
+  })
+}
+
+# map data types from val.dat
+col_types <- map_data_types(val.dat)
+
+# construct a CREATE TABLE statement for val.dat using the mapped data types
+create_table_statement <- paste0("CREATE TABLE IF NOT EXISTS DxIvalData (",
+                                paste(names(col_types), col_types, sep=" ", collapse=", "),
+                                ", ValidationID INTEGER PRIMARY KEY AUTOINCREMENT",
+                                ", FOREIGN KEY (Bezeichnung) REFERENCES MethodData(Bezeichnung)",
+                                ")") # ich warte noch auf die komplette Liste der TestName damit ich die Foreign Key erstellen kann
+
+
+# construct a dynamic SQL query to import DxI800 measurement data from INLAB
 values <- sQuote(substr( as.character( val.dat$SampleID ), 1, 10.), q=FALSE )
 n <-  10
 
