@@ -12,7 +12,9 @@ output:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE}
-
+if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
+  install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
+}
 library(knitr)
 library(tidyverse)
 library(parallel)
@@ -22,9 +24,26 @@ library(officedown)
 library(officer)
 library(mcr)
 library(flextable)
+
+library(rstudioapi)
+
 set_flextable_defaults(font.size = 11, padding = 3)
 use_df_printer()
 opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
+
+# set working directory ----------------------------------------------------
+
+# Use rstudioapi to get the path of the current project
+project_directory <- rstudioapi::getActiveProject()
+
+# if running in an RStudio project, set the working directory to the project directory
+# If not running in an RStudio project, print a message
+if (!is.null(project_directory)) {
+  setwd(project_directory)
+} else {
+  print("This R session is not running within an RStudio Project.")
+}
+
 ```
 
 <!-- Prepare libraries and import data from Excel -->
