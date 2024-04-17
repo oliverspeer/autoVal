@@ -16,17 +16,21 @@ library(RSQLite)
 
 # Daten einlesen
 
-```{r}
-
+```{r import valData, warning=FALSE, message=FALSE}
 setwd("C:/R_local/autoVal")
 
 # read DXI data
-val.dat <- read_excel("240307rawdata.xlsx")
+val.dat <- read_excel("C:/R_local/autoVal/240307rawdata.xlsx")
 setDT(val.dat)
 
+val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
+```
+
+
+```{r transfer valData into SQL db, warning=FALSE, message=FALSE}
 # automatically create a SQL TABLE containing DxI9000 data
 # function to map R data types to SQLite data types
-map_data_types <- function(df) {
+map.data.types <- function(df) {
   sapply(df, function(column) {
     dtype <- class(column)[1]  # Get the class of the column. If multiple, take the first.
     switch(dtype,
@@ -42,57 +46,86 @@ map_data_types <- function(df) {
 }
 
 # map data types from val.dat
-col_types <- map_data_types(val.dat)
+col.types <- map.data.types(val.dat)
 
 # construct a CREATE TABLE statement for val.dat using the mapped data types
-create_table_statement <- paste0("CREATE TABLE IF NOT EXISTS DxIvalData (",
-                                paste(names(col_types), col_types, sep=" ", collapse=", "),
+create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS DxIvalData (",
+                                paste(
+                                  sapply(names(col.types), function(name) paste0('"', name, '"')),
+                                  col.types, 
+                                  sep=" ", 
+                                  collapse=", "),
                                 ", ValidationID INTEGER PRIMARY KEY AUTOINCREMENT",
-                                ", FOREIGN KEY (Bezeichnung) REFERENCES MethodData(Bezeichnung)",
-                                ")") # ich warte noch auf die komplette Liste der TestName damit ich die Foreign Key erstellen kann
+                                ", FOREIGN KEY (Probennummer) REFERENCES MeasurementData (Probennummer)",
+                                ")") 
+
+# connect to SQLite DB
+con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+
+# create the table in the SQLite DB
+dbExecute(con, create.table.statement)
+
+# insert val.dat into the SQLite DB
+dbWriteTable(con, "DxIvalData", val.dat, append = TRUE, row.names = FALSE)
+```
 
 
-# construct a dynamic SQL query to import DxI800 measurement data from INLAB
-values <- sQuote(substr( as.character( val.dat$SampleID ), 1, 10.), q=FALSE )
-n <-  10
+```{r BCI_INLAB tranlation into SQL db, warning=FALSE, message=FALSE}
 
-conditions <- paste(sprintf("SUBSTR(Probennummer, 1, %d) = %s", n, values), collapse = " OR ")
-query <- sprintf("SELECT * FROM MeasurementData WHERE %s", conditions)
+# import BCI_INLAB data
+BCI_INLAB <- fread("C:/R_local/autoVal/query_bez_DxI_result.csv", sep = ";", encoding = "UTF-8")
+BCI_INLAB$TestOrderCode <- as.integer(BCI_INLAB$TestOrderCode)
 
+# map data types from val.dat
+col.types <- map.data.types(BCI_INLAB)
 
-# connect to SQLite DB  ----------------------------------------------------
+# construct a CREATE TABLE statement for val.dat using the mapped data types
+create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS TranslationData (",
+                                paste(
+                                  sapply(names(col.types), function(name) paste0('"', name, '"')),
+                                  col.types, 
+                                  sep=" ", 
+                                  collapse=", "),
+                                ", TranslationID INTEGER PRIMARY KEY AUTOINCREMENT",
+                                ", FOREIGN KEY (Methode) REFERENCES MethodData (Methode)",
+                                ", FOREIGN KEY (TestOrderCode) REFERENCES DxIvalData (TestOrderCode)",
+                                ")") 
 
-con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_test.db")
+# connect to SQLite DB
+con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
 
-dbListTables(con)
+# create the table in the SQLite DB
+dbExecute(con, create.table.statement)
 
-query.val.data <- dbGetQuery( con, query )
-summary(query.va.data)
+# insert val.dat into the SQLite DB
+dbWriteTable(con, "TranslationData", BCI_INLAB, append = TRUE, row.names = FALSE)
 
-
+dbDisconnect(con)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
-# set working directory ----------------------------------------------------
-setwd("C:/R_local/autoVal")
 
-```
+query.dxi.val <- "SELECT DISTINCT a.Methode, 
+                    a.Bezeichnung, 
+                    a.Werte, 
+                    m.EINHEIT, 
+                    t.TestName, 
+                    d.DoseResult, 
+                    d.DoseUnit, 
+                    a.Probennummer, 
+                    d.Probennummer  
+                  FROM MeasurementData a 
+                    JOIN MethodData m ON a.Methode = m.Methode
+                    JOIN TranslationData t ON a.Methode = t.Methode
+                    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+                  WHERE a.Bezeichnung = 'Ferritin' AND a.Probennummer = d.Probennummer;"
 
-```{r}
-#read data
-val.dat <- read_excel("240307rawdata.xlsx")
-pat.dat <- DT.tidy.dxi
-setDT(pat.dat)
-setDT(val.dat)
+con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
 
-#add key to join data
-val.dat[, key.val := as.numeric(substr(as.character(SampleID),1 ,10))]
-pat.dat[, key.pat := as.numeric(Probennummer)]
+query.dxi.val <- dbGetQuery(con, query.dxi.val)
 
-#join data
-val.dat <- val.dat[pat.dat, Ferritin2 := i.Ferritin, on = "key.val == key.pat"]
+dbDisconnect(con)
 
-# copy val.dat$Ferritin2 and val.dat$Ferritin to a new data.table
-val.dat2 <- val.dat[TestName == "Ferritin",][, .(SampleID, TestName, DoseResult, DoseUnit, Ferritin2)]
+# query is further used in DxI_autoValOffcDwnWrd.Rmd
 
 ```
