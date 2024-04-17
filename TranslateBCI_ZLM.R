@@ -9,14 +9,17 @@ library(RSQLite)
 library(stringdist)
 
 # set working directory ----------------------------------------------------
-setwd("C:/R_local/labStat")
+source("StartUp.R")
+StartUpRoutine()
+# setwd("C:/R_local/labStat")
+# con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_test.db")
 
 # read data ----------------------------------------------------------------
-con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_test.db")
+
 
 dbListTables(con)
 
-query.bez <- "SELECT DISTINCT a.Bezeichnung, m.Gerät
+query.bez <- "SELECT DISTINCT a. Methode, a.Bezeichnung
                 FROM MeasurementData a
                 JOIN MethodData m ON a.Methode = m.Methode
                  WHERE m.Gerät = 'DxI';"
@@ -36,7 +39,7 @@ setDT(val.dat)
 DXI.testName <- val.dat[, .(TestOrderCode, TestName)] |> unique()
 
 # Combined function for string distance measurement & check for key term- and abbreviations-presence
-adjust_for_key_terms_and_abbreviation <- function(string1, string2, method = "osa", key_terms = c("t3")) {
+adjust_for_key_terms_and_abbreviation <- function(string1, string2, method = "osa", key_terms = c("t3", "t4", "25", "fol", "hs", "thy")) {
   
   # Calculate string distance
   base_distance <- stringdist(tolower(string1), tolower(string2), method = method, nthread = 4)
@@ -75,4 +78,18 @@ for (i in 1:nrow(query.bez.result)) {
 closest.match <- apply(dist.mat, 1, which.min)
 
 # Add the closest match to query.bez.result
-query.bez.result$closest.match <- DXI.testName$TestName[closest.match]
+query.bez.result$TestName <- DXI.testName$TestName[closest.match]
+
+# merge DXI.testName and query.bez.result on closest.match
+query.bez.result <- merge(query.bez.result, DXI.testName, by.x = "TestName", by.y = "TestName", all.x = TRUE)
+ 
+# change order of columns from 1,2,3,4 to 2,3,1,4
+query.bez.result <- query.bez.result[, c(2, 3, 1, 4)]
+
+# Write the results to a file
+fwrite(query.bez.result, "C:/R_local/autoVal/query_bez_DxI_result.csv", sep = ";")
+
+# read the results 
+query.bez.result <- fread("C:/R_local/autoVal/query_bez_DxI_result.csv", sep = ";", encoding = "UTF-8")
+
+
