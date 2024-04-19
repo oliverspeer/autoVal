@@ -11,7 +11,7 @@ output:
        sep: ': '
 ---
 
-```{r setup, echo=FALSE, message = FALSE}
+```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
 if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
   install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
 }
@@ -55,7 +55,7 @@ if (!is.null(project_directory)) {
 ```{r Datentabelle, echo=FALSE, message = FALSE}
 library(readxl)
 ## Import Data from a xlsx file, create the vectors for reference x and test y
-validation.data <- read_excel("vdata.xlsx", sheet = "DATA")
+validation.data <- read_excel("vdata.xlsx", sheet = "DATA", col_types = "numeric")
 val.crit <- read_excel("vdata.xlsx", sheet = "CRIT")
 val.info <- read_excel("vdata.xlsx", sheet = "INFO")
 val.prec <- read_excel("vdata.xlsx", sheet = "PREC")

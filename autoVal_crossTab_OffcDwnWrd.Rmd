@@ -12,29 +12,37 @@ output:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
-# if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
-#   install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
-# }
-# library(knitr)
-# library(tidyverse)
-# library(parallel)
-# library(robslopes)
-# library(readxl)
-# library(officedown)
-# library(officer)
-# library(mcr)
-# library(flextable)
-# 
-# library(rstudioapi)
-# library(DBI)
-# library(RSQLite)
+if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
+  install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
+}
+library(knitr)
+library(tidyverse)
+library(parallel)
+library(robslopes)
+library(readxl)
+library(officedown)
+library(officer)
+library(mcr)
+library(flextable)
 
-source("StartUp.R")
-StartUpRoutine()
+library(rstudioapi)
 
 set_flextable_defaults(font.size = 11, padding = 3)
 use_df_printer()
 opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
+
+# set working directory ----------------------------------------------------
+
+# Use rstudioapi to get the path of the current project
+project_directory <- rstudioapi::getActiveProject()
+
+# if running in an RStudio project, set the working directory to the project directory
+# If not running in an RStudio project, print a message
+if (!is.null(project_directory)) {
+  setwd(project_directory)
+} else {
+  print("This R session is not running within an RStudio Project.")
+}
 
 ```
 
@@ -44,69 +52,16 @@ opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
 
 <!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
 
-```{r Datentabelle, echo=FALSE, message = FALSE, warning = FALSE}
+```{r Datentabelle, echo=FALSE, message = FALSE}
 library(readxl)
 ## Import Data from a xlsx file, create the vectors for reference x and test y
+validation.data <- read_excel("vdata.xlsx", sheet = "DATA", col_types = "numeric")
+val.crit <- read_excel("vdata.xlsx", sheet = "CRIT")
+val.info <- read_excel("vdata.xlsx", sheet = "INFO")
+val.prec <- read_excel("vdata.xlsx", sheet = "PREC")
 
-query.dxi.val <- "SELECT DISTINCT
-                    CAST(a.Werte AS FLOAT) AS DxI800,
-                   CAST(d.DoseResult AS FLOAT) AS DxI9000,
-                    a.Bezeichnung,
-                    -- a.Methode,
-                    m.EINHEIT,
-                    -- t.TestName,
-                    d.DoseUnit --,
-                    -- a.Probennummer,
-                    -- d.Probennummer
-                  FROM MeasurementData a
-                    JOIN MethodData m ON a.Methode = m.Methode
-                    JOIN TranslationData t ON a.Methode = t.Methode
-                    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                  WHERE a.Methode = 33548 AND a.Probennummer = d.Probennummer;"
-
-validation.data <- dbGetQuery(con, query.dxi.val)
-
-
-# write the result into a specific sheet of a specific xlsx file
-library(openxlsx)
-
-
-filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
-
-# Load the Excel file)
-wb <- loadWorkbook(filepath)
-
-# Specify the sheet name where you want to write the data.
-# If the sheet does not exist, it will be created.
-sheet_name <- "DATA"
-
-# Write query execution date & time starting at a specific cell
-writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1 )
-
-# Write min_max_dates starting at a specific cell
-# writeData(wb, sheet = sheet_name, min_max_dates, startRow = 1, startCol = 1, colNames = TRUE )
-
-# Save the workbook (this overwrites the existing Excel file with the new data added)
-saveWorkbook(wb, filepath, overwrite = T)
-
-# close the connection
-dbDisconnect(con)
-
-
-validation.data = NULL
-validation.data <- read_excel("vdata _DxI.xlsx", sheet = "DATA")
-#DxI800 <- as.numeric(query.dxi.val$Werte)
-#DxI9000 <- as.numeric(query.dxi.val$DoseResult)
-#validation.data <- data.frame(DxI800, DxI9000)
-
-# this  needs further imprvement, wrong source!-------------------------------------
-val.crit <- read_excel("vdata _DxI.xlsx", sheet = "CRIT")
-val.info <- read_excel("vdata _DxI.xlsx", sheet = "INFO")
-val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
-##-------------------------------------------------------------------------------------
-  
-method.x <- as.numeric(validation.data[[1]])
-method.y <- as.numeric(validation.data[[2]])
+method.x <- validation.data[[1]]
+method.y <- validation.data[[2]]
 ## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
 set.seed(8173)
 PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
@@ -122,7 +77,7 @@ title: "`r paste(val.info$x[1])`"
 # Einleitung 
 
 
-```{r cover_table, echo = FALSE, message = FALSE, warning = FALSE}
+```{r cover_table, echo = FALSE, message = FALSE}
 
 val.info |>  flextable() |> 
   bold(i = c(1, 11, 15, 17)) |> 
@@ -140,7 +95,7 @@ val.info |>  flextable() |>
 ## Messdaten, Mittelwerte und Differenzen 
   
 ```{r data_table, echo = FALSE, warning = FALSE, message = FALSE}
-table.one <- data.frame(seq.int(nrow(validation.data)),validation.data[,1:2])
+table.one <- data.frame(seq.int(nrow(validation.data)),validation.data)
 colnames(table.one)[1] = "# "
 
 # table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
@@ -159,7 +114,7 @@ table.one |>
 
 ## Präzisionsdaten
 
-```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
+```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE}
 library(tidyverse)
 library(flextable)
 
@@ -287,15 +242,15 @@ gradient_est <- PB.reg@para[2]
 gradient_lci <- PB.reg@para[6]
 gradient_uci <- PB.reg@para[8]
 alpha_ci <- PB.reg@alpha[1]
-text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
-text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
-text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.35, sprintf("alpha : %4.2f", alpha_ci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.35, sprintf("alpha : %4.2f", alpha_ci))
 
 ```
 
 ```{r coef_plot, echo = FALSE, warning = FALSE, message = FALSE}
-fitPaBa <- mcreg(as.matrix(validation.data[,1:2]), method.reg="PaBa", na.rm=TRUE)
-fitlr <- mcreg(as.matrix(validation.data[,1:2]), method.reg="LinReg", na.rm=TRUE)
+fitPaBa <- mcreg(as.matrix(validation.data), method.reg="PaBa", na.rm=TRUE)
+fitlr <- mcreg(as.matrix(validation.data), method.reg="LinReg", na.rm=TRUE)
 compareFit(fitlr, fitPaBa)
 ```
 
@@ -327,6 +282,50 @@ plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
 ```
 
 \newpage
+
+# Kreuztabelle
+
+```{r Kreuttabelle, echo=FALSE, warning = FALSE, message = FALSE}
+library(dplyr)
+
+
+
+# Define breaks and labels for categories
+area <- c(-Inf, 300, 600, Inf) # define the breaks
+cutoff <- c("<300", "300-600", ">600") # define the labels
+
+# Categorize 'BNII' and 'AU5800' using cut
+data <- validation.data %>%
+  mutate(
+    Category_BNII = cut(BNII, breaks = area, labels = cutoff, right = FALSE),
+    Category_AU5800 = cut(AU5800, breaks = area, labels = cutoff, right = FALSE)
+  )
+
+# Create crosstabs
+crosstab_BNII <- data.frame(table(data$Category_BNII))
+crosstab_AU5800 <- data.frame(table(data$Category_AU5800))
+
+combined_data <- merge(crosstab_BNII, crosstab_AU5800, by.x = "Var1", by.y = "Var1", suffixes = c(" BNII", " AU5800"))
+names(combined_data)[1] <- "Category"
+
+combined_data |>  flextable() |> 
+   bold(i = 1) |> 
+  theme_vanilla() |>   
+   bg(bg = "darkgrey", i = c(1,3)) |> 
+  # bg(bg = "lightgrey", i = c(11, 15, 17)) |> 
+  set_table_properties(width = 0.8, layout = "autofit") |> 
+  colformat_date(fmt_date = "%d/%m/%Y")
+
+
+
+
+
+
+
+```
+
+
+
 
 # Schlussfolgerung und Freigabe
 
