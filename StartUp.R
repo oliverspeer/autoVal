@@ -19,7 +19,8 @@ StartUpRoutine <- function() {
                 "officer", 
                 "mcr", 
                 "flextable",
-                "openxlsx"
+                "openxlsx",
+                "CLSIEP15"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them

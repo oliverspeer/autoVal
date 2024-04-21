@@ -11,7 +11,6 @@ StartUpRoutine()
 
 ```
 
-
 ## SQL query for QC data
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
@@ -40,7 +39,13 @@ prc.L2.data <- dbGetQuery(con, query.L2)
 
 ```{r CLSIEP15 table, echo=FALSE, warning=FALSE, message=FALSE}
 # building the CLSIEP15 table
-cort.long <- data.frame(
+L1.long <- data.frame(
+  rep = rep(1:5, each = 5),
+  name = prc.L1.data$SampleID[1:25],
+  value = prc.L1.data$DoseResult[1:25]
+)
+
+L2.long <- data.frame(
   rep = rep(1:5, each = 5),
   name = prc.L1.data$SampleID[1:25],
   value = prc.L1.data$DoseResult[1:25]
@@ -50,7 +55,3 @@ library(CLSIEP15)
 prc.data.L1 <- calculate_aov_infos(cort.long)
 
 ```
-
-
-
-
