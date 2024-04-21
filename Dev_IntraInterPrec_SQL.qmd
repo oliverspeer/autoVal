@@ -52,6 +52,7 @@ L2.long <- data.frame(
 )
 
 library(CLSIEP15)
-prc.data.L1 <- calculate_aov_infos(cort.long)
+prc.data.L1 <- calculate_aov_infos(L1.long)
+prc.data.L2 <- calculate_aov_infos(L2.long)
 
 ```
