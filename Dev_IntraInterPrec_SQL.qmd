@@ -1,0 +1,56 @@
+---
+title: "Dev_Intra_Inter_Prec"
+author: "Oliver Speer"
+format: html
+editor: visual
+---
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+
+```
+
+
+## SQL query for QC data
+
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
+
+# enable and register the REGEXP function in the SQLite connection
+initExtension(con, extension = "regexp")
+
+# SQL query for intra- and inter-assay precision data
+query.L1 <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+                  FROM DxIvalData
+                  WHERE TestName = 'Cortisol' 
+                    AND SampleID REGEXP '[a-zA-Z]+1_\\d'
+                    AND DoseUnit IS NOT NULL;"
+
+query.L2 <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+                  FROM DxIvalData
+                  WHERE TestName = 'Myoglobin' 
+                    AND SampleID REGEXP '[a-zA-Z]+2_\\d'
+                    AND DoseUnit IS NOT NULL;"
+
+# execute the query
+prc.L1.data <- dbGetQuery(con, query.L1)
+prc.L2.data <- dbGetQuery(con, query.L2)
+
+```
+
+```{r CLSIEP15 table, echo=FALSE, warning=FALSE, message=FALSE}
+# building the CLSIEP15 table
+cort.long <- data.frame(
+  rep = rep(1:5, each = 5),
+  name = prc.L1.data$SampleID[1:25],
+  value = prc.L1.data$DoseResult[1:25]
+)
+
+library(CLSIEP15)
+prc.data.L1 <- calculate_aov_infos(cort.long)
+
+```
+
+
+
+

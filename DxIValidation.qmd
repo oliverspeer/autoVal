@@ -12,6 +12,9 @@ library(tidyverse)
 library(DBI)
 library(RSQLite)
 
+source("StartUp.R")
+StartUpRoutine()
+
 ```
 
 # Daten einlesen
@@ -19,15 +22,26 @@ library(RSQLite)
 ```{r import valData, warning=FALSE, message=FALSE}
 setwd("C:/R_local/autoVal")
 
+# function to rename duplicate column names
+rename_duplicates <- function(data) {
+  names(data) <- make.unique(names(data), sep = "")
+  return(data)
+}
 # read DXI data
-val.dat <- read_excel("C:/R_local/autoVal/240307rawdata.xlsx")
+val.dat <- read_excel("C:/R_local/autoVal/240305_DxIrawdata.xlsx")
+val.dat <- val.dat |>  
+  rename(
+    PackRevision = `PackRevision...77`,
+    PackRevision2 = `PackRevision...89`
+  )
 setDT(val.dat)
+
 
 val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
 ```
 
 
-```{r transfer valData into SQL db, warning=FALSE, message=FALSE}
+```{r prepare valData SQL TABLE, warning=FALSE, message=FALSE}
 # automatically create a SQL TABLE containing DxI9000 data
 # function to map R data types to SQLite data types
 map.data.types <- function(df) {
@@ -64,7 +78,10 @@ con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
 
 # create the table in the SQLite DB
 dbExecute(con, create.table.statement)
+```
 
+
+```{r transfer valData into SQL db, warning=FALSE, message=FALSE}
 # insert val.dat into the SQLite DB
 dbWriteTable(con, "DxIvalData", val.dat, append = TRUE, row.names = FALSE)
 ```
