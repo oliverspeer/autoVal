@@ -19,40 +19,94 @@ StartUpRoutine()
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L1 <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.L <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
-                  WHERE TestName = 'Cortisol' 
+                  WHERE TestName = 'TSH' 
                     AND SampleID REGEXP '[a-zA-Z]+1_\\d'
                     AND DoseUnit IS NOT NULL;"
 
-query.L2 <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.H <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
-                  WHERE TestName = 'Myoglobin' 
+                  WHERE TestName = 'Ferritin' 
                     AND SampleID REGEXP '[a-zA-Z]+2_\\d'
                     AND DoseUnit IS NOT NULL;"
 
 # execute the query
-prc.L1.data <- dbGetQuery(con, query.L1)
-prc.L2.data <- dbGetQuery(con, query.L2)
+prc.L.data <- dbGetQuery(con, query.L)
+prc.H.data <- dbGetQuery(con, query.H)
 
 ```
 
 ```{r CLSIEP15 table, echo=FALSE, warning=FALSE, message=FALSE}
 # building the CLSIEP15 table
-L1.long <- data.frame(
+L.long <- data.frame(
   rep = rep(1:5, each = 5),
-  name = prc.L1.data$SampleID[1:25],
-  value = prc.L1.data$DoseResult[1:25]
+  name = prc.L.data$SampleID[1:25],
+  value = prc.L.data$DoseResult[1:25]
 )
 
-L2.long <- data.frame(
+H.long <- data.frame(
   rep = rep(1:5, each = 5),
-  name = prc.L1.data$SampleID[1:25],
-  value = prc.L1.data$DoseResult[1:25]
+  name = prc.H.data$SampleID[1:25],
+  value = prc.H.data$DoseResult[1:25]
 )
 
 library(CLSIEP15)
-prc.data.L1 <- calculate_aov_infos(L1.long)
-prc.data.L2 <- calculate_aov_infos(L2.long)
+prc.data.L <- calculate_aov_infos(L.long)
+prc.data.H <- calculate_aov_infos(H.long)
+
+# prec.data <-
+#   val.prec |> select(Messwert_intra1,
+#                      Messwert_intra2,
+#                      Messwert_inter1,
+#                      Messwert_inter2)
+
+# prec.data.stat <-
+#   prec.data |> summarize(n = n(), across(
+#     Messwert_intra1:Messwert_inter2,
+#     list(
+#       Mittelwert = \(x) round(mean(x, na.rm = TRUE), digits = 2),
+#       StabW = \(x) round(sd(x, na.rm = TRUE), digits = 2),
+#       VK = \(x) round(cv(x), digits = 1)
+#     )
+#   ),)
+
+
+
+intra.df <- data.frame(
+  "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  L = c(
+    paste(prc.data.L$N),
+    paste(val.prec$Ziel_intra1[1]),
+    paste(prc.data.L$mean ),
+    paste(prc.data.L$sd),
+    paste(round(prc.data.L$Vwithin, 2))
+  ),
+  H = c(
+    paste(prc.data.H$N),
+    paste(val.prec$Ziel_intra2[1]),
+    paste(prc.data.H$mean ),
+    paste(prc.data.H$sd),
+    paste(round(prc.data.H$Vwithin, 2))
+  )
+)
+
+inter.df <- data.frame(
+  "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  L = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter1[1]),
+    paste(prec.data.stat$Messwert_inter1_Mittelwert),
+    paste(prec.data.stat$Messwert_inter1_StabW),
+    paste(prec.data.stat$Messwert_inter1_VK)
+  ),
+  H = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter2[1]),
+    paste(prec.data.stat$Messwert_inter2_Mittelwert),
+    paste(prec.data.stat$Messwert_inter2_StabW),
+    paste(prec.data.stat$Messwert_inter2_VK)
+  )
+)
 
 ```
