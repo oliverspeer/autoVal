@@ -120,6 +120,9 @@ table.one |>
 library(tidyverse)
 library(flextable)
 
+prc.data.L <- calculate_aov_infos( create_table_ep_15(val.prec.L1) )
+prc.data.H <- calculate_aov_infos( create_table_ep_15(val.prec.L2) )
+
 cv <- function(x) {
   sd(x) * 100 / mean(x)
 }
@@ -143,38 +146,42 @@ prec.data.stat <-
 
 
 intra.df <- data.frame(
-  "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)", "CLSIVK"),
   L = c(
     paste(prec.data.stat$n),
     paste(val.prec$Ziel_intra1[1]),
     paste(prec.data.stat$Messwert_intra1_Mittelwert),
     paste(prec.data.stat$Messwert_intra1_StabW),
-    paste(prec.data.stat$Messwert_intra1_VK)
+    paste(prec.data.stat$Messwert_intra1_VK),
+    paste(round(prc.data.L$CVR), 2)
   ),
   H = c(
     paste(prec.data.stat$n),
     paste(val.prec$Ziel_intra2[1]),
     paste(prec.data.stat$Messwert_intra2_Mittelwert),
     paste(prec.data.stat$Messwert_intra2_StabW),
-    paste(prec.data.stat$Messwert_intra2_VK)
+    paste(prec.data.stat$Messwert_intra2_VK),
+    paste(round(prc.data.H$CVR), 2)
   )
 )
 
 inter.df <- data.frame(
-  "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+  "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)", "CLSIVK"),
   L = c(
     paste(prec.data.stat$n),
     paste(val.prec$Ziel_inter1[1]),
     paste(prec.data.stat$Messwert_inter1_Mittelwert),
     paste(prec.data.stat$Messwert_inter1_StabW),
-    paste(prec.data.stat$Messwert_inter1_VK)
+    paste(prec.data.stat$Messwert_inter1_VK),
+    paste(round(prc.data.L$CVWL), 2)
   ),
   H = c(
     paste(prec.data.stat$n),
     paste(val.prec$Ziel_inter2[1]),
     paste(prec.data.stat$Messwert_inter2_Mittelwert),
     paste(prec.data.stat$Messwert_inter2_StabW),
-    paste(prec.data.stat$Messwert_inter2_VK)
+    paste(prec.data.stat$Messwert_inter2_VK),
+    paste(round(prc.data.H$CVWL), 2)
   )
 )
 
@@ -201,7 +208,8 @@ inter.df.ft |> bg(bg = "grey", part = "header")
 ```
 
 ```{r CLSI15, echo = FALSE, message = FALSE, warning = FALSE}
-
+# prc.data.L <- calculate_aov_infos( create_table_ep_15(val.prec.L1) )
+# prc.data.H <- calculate_aov_infos( create_table_ep_15(val.prec.L2) )
 
 ```
 
