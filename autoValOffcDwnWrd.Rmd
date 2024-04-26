@@ -121,7 +121,11 @@ library(tidyverse)
 library(flextable)
 
 prc.data.L <- calculate_aov_infos( create_table_ep_15(val.prec.L1) )
+prc.data.L$CVWL <- round(prc.data.L$CVWL, digits = 1)
+prc.data.L$CVR <- round(prc.data.L$CVR, digits = 1)
 prc.data.H <- calculate_aov_infos( create_table_ep_15(val.prec.L2) )
+prc.data.H$CVWL <- round(prc.data.H$CVWL, digits = 1)
+prc.data.H$CVR <- round(prc.data.H$CVR, digits = 1)
 
 cv <- function(x) {
   sd(x) * 100 / mean(x)
@@ -153,7 +157,7 @@ intra.df <- data.frame(
     paste(prec.data.stat$Messwert_intra1_Mittelwert),
     paste(prec.data.stat$Messwert_intra1_StabW),
     paste(prec.data.stat$Messwert_intra1_VK),
-    paste(round(prc.data.L$CVR), 2)
+    paste(prc.data.L$CVR)
   ),
   H = c(
     paste(prec.data.stat$n),
@@ -161,7 +165,7 @@ intra.df <- data.frame(
     paste(prec.data.stat$Messwert_intra2_Mittelwert),
     paste(prec.data.stat$Messwert_intra2_StabW),
     paste(prec.data.stat$Messwert_intra2_VK),
-    paste(round(prc.data.H$CVR), 2)
+    paste(prc.data.H$CVR)
   )
 )
 

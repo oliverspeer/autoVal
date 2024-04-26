@@ -21,7 +21,7 @@ initExtension(con, extension = "regexp")
 # SQL query for intra- and inter-assay precision data
 query.L <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
-                  WHERE TestName = 'TSH' 
+                  WHERE TestName = 'Ferritin' 
                     AND SampleID REGEXP '[a-zA-Z]+1_\\d'
                     AND DoseUnit IS NOT NULL;"
 

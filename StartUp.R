@@ -20,7 +20,12 @@ StartUpRoutine <- function() {
                 "mcr", 
                 "flextable",
                 "openxlsx",
-                "CLSIEP15"
+                "CLSIEP15",
+                "shiny",
+                "shinythemes", 
+                "shinyjs", 
+                "shinycssloaders", 
+                "DT"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them
