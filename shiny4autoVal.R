@@ -34,9 +34,9 @@ ui <- fluidPage(
              #   column(12, DTOutput("yearlyDevice"))
              # ),
              selectInput("method", "Wähle die Methode", choices = NULL),
-             fluidRow(
-               column(12, DTOutput("nSamples"))
-             ),
+             # fluidRow(
+             #   column(12, DTOutput("nSamples"))
+             # ),
              actionButton("generate.report", "Erstelle Validationsbericht"))
   )
 )
@@ -45,13 +45,46 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   
+  # Reactive value to store the method corresponding to the selected test name
+  selectedMethod <- reactiveVal()
+  
   # Update method choices based on the database
   updateSelectInput(session, "method",
                     choices = dbGetQuery(con, "SELECT DISTINCT TestName FROM DxIvalData 
                                          WHERE SampleID IS NOT NULL 
                                          ORDER BY TestName ASC"))
   
-
+  # Observe changes in the selected TestName and update the Methode accordingly
+  observe({
+    testName <- input$method
+    if (!is.null(testName)) {
+      # Query to get the corresponding Method
+      methodQuery <- sprintf("SELECT Methode FROM TranslationData WHERE TestName = '%s'", testName)
+      methodResult <- dbGetQuery(con, methodQuery)
+      # Assume methodResult returns one row with one column named 'Method'
+      if (nrow(methodResult) > 0) {
+        selectedMethod(methodResult$Method[1])
+      } else {
+        selectedMethod(NULL)  # No method found
+      }
+    }
+  })
+  
+  
+  # Generate report
+  observeEvent(input$generate.report, {
+    # Ensure method is not NULL before rendering
+    if (!is.null(selectedMethod())) {
+      quarto::quarto_render("DxI_autoValOffcDwnWrd.Rmd", 
+                            output_format = "all", 
+                            execute_params = list(method = selectedMethod())#,
+                          #  execute_debug =  TRUE 
+                            )
+    } else {
+      # Handle case where no method is found
+      showNotification("No method found for the selected test name.", type = "error")
+    }
+  })
 }
 
 

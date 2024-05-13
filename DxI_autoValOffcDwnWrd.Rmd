@@ -1,4 +1,8 @@
 ---
+title: "DxI9000 Validation"
+format: word_document
+params:
+  method: "Default Method"
 output: 
   officedown::rdocx_document:
     reference_docx: "Formatvorlage_autoValWORD.docx"
@@ -15,26 +19,28 @@ output:
 # if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
 #   install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
 # }
-# library(knitr)
-# library(tidyverse)
-# library(parallel)
-# library(robslopes)
-# library(readxl)
-# library(officedown)
-# library(officer)
-# library(mcr)
-# library(flextable)
+ # library(knitr)
+ # library(tidyverse)
+ # library(parallel)
+ # library(robslopes)
+ # library(readxl)
+ # library(officedown)
+ # library(officer)
+ # library(mcr)
+ # library(flextable)
 # 
 # library(rstudioapi)
-# library(DBI)
-# library(RSQLite)
+ # library(DBI)
+ # library(RSQLite)
 
-source("StartUp.R")
-StartUpRoutine()
+ source("StartUp.R")
+ StartUpRoutine()
 
 set_flextable_defaults(font.size = 11, padding = 3)
 use_df_printer()
 opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
+
+method <- params$method
 
 ```
 
@@ -62,16 +68,17 @@ query.dxi.val <- "SELECT DISTINCT
                     JOIN MethodData m ON a.Methode = m.Methode
                     JOIN TranslationData t ON a.Methode = t.Methode
                     JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                  WHERE a.Methode = 33548 AND a.Probennummer = d.Probennummer;"
+                  WHERE a .Methode = '%s' AND a.Probennummer = d.Probennummer;"
 
-validation.data <- dbGetQuery(con, query.dxi.val)
+validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
 
 
 # write the result into a specific sheet of a specific xlsx file
 library(openxlsx)
 
 
-filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
+# filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
+filepath <- "vdata _DxI.xlsx"
 
 # Load the Excel file)
 wb <- loadWorkbook(filepath)

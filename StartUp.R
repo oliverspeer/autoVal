@@ -25,7 +25,8 @@ StartUpRoutine <- function() {
                 "shinythemes", 
                 "shinyjs", 
                 "shinycssloaders", 
-                "DT"
+                "DT",
+                "quarto"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them
@@ -59,16 +60,16 @@ StartUpRoutine <- function() {
   }
   
   # Get the path of the current project
-  project_directory <- rstudioapi::getActiveProject()
-  assign("project_directory", project_directory, envir = .GlobalEnv)
-  
-  # If running in an RStudio project, set the working directory to the project directory
-  # If not running in an RStudio project, print a message
-  if (!is.null(project_directory)) {
-    setwd(project_directory)
-  } else {
-    print("This R session is not running within an RStudio Project.")
-  }
+  # project_directory <- rstudioapi::getActiveProject()
+  # assign("project_directory", project_directory, envir = .GlobalEnv)
+  # 
+  # # If running in an RStudio project, set the working directory to the project directory
+  # # If not running in an RStudio project, print a message
+  # if (!is.null(project_directory)) {
+  #   setwd(project_directory)
+  # } else {
+  #   print("This R session is not running within an RStudio Project.")
+  # }
   
   # Set database directory and connect to the database
   db.wd <- getDatabasePath()
