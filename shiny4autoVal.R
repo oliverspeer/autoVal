@@ -75,10 +75,9 @@ server <- function(input, output, session) {
   observeEvent(input$generate.report, {
     # Ensure method is not NULL before rendering
     if (!is.null(selectedMethod())) {
-      quarto::quarto_render("DxI_autoValOffcDwnWrd.Rmd", 
+      rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
                             output_format = "all", 
-                            execute_params = list(method = selectedMethod())#,
-                          #  execute_debug =  TRUE 
+                            params = list(method = selectedMethod()) 
                             )
     } else {
       # Handle case where no method is found

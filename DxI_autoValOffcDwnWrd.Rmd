@@ -1,8 +1,4 @@
 ---
-title: "DxI9000 Validation"
-format: word_document
-params:
-  method: "Default Method"
 output: 
   officedown::rdocx_document:
     reference_docx: "Formatvorlage_autoValWORD.docx"
@@ -13,6 +9,8 @@ output:
        style: Image Caption
        pre: 'Figure '
        sep: ': '
+params:
+  method: "Default Method"       
 ---
 
 ```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
@@ -58,7 +56,7 @@ query.dxi.val <- "SELECT DISTINCT
                     CAST(a.Werte AS FLOAT) AS DxI800,
                    CAST(d.DoseResult AS FLOAT) AS DxI9000,
                     a.Bezeichnung,
-                    -- a.Methode,
+                    a.Methode,
                     m.EINHEIT,
                     -- t.TestName,
                     d.DoseUnit --,
