@@ -49,53 +49,58 @@ method <- params$method
 <!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
 
 ```{r Datentabelle, echo=FALSE, message = FALSE, warning = FALSE}
-library(readxl)
-## Import Data from a xlsx file, create the vectors for reference x and test y
-
-query.dxi.val <- "SELECT DISTINCT
-                    CAST(a.Werte AS FLOAT) AS DxI800,
-                   CAST(d.DoseResult AS FLOAT) AS DxI9000,
-                    a.Bezeichnung,
-                    a.Methode,
-                    m.EINHEIT,
-                    -- t.TestName,
-                    d.DoseUnit --,
-                    -- a.Probennummer,
-                    -- d.Probennummer
-                  FROM MeasurementData a
-                    JOIN MethodData m ON a.Methode = m.Methode
-                    JOIN TranslationData t ON a.Methode = t.Methode
-                    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                  WHERE a .Methode = '%s' AND a.Probennummer = d.Probennummer;"
-
-validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
-
-
-# write the result into a specific sheet of a specific xlsx file
-library(openxlsx)
-
-
-# filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
-filepath <- "vdata _DxI.xlsx"
-
-# Load the Excel file)
-wb <- loadWorkbook(filepath)
-
-# Specify the sheet name where you want to write the data.
-# If the sheet does not exist, it will be created.
-sheet_name <- "DATA"
-
-# Write query execution date & time starting at a specific cell
-writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1 )
-
-# Write min_max_dates starting at a specific cell
-# writeData(wb, sheet = sheet_name, min_max_dates, startRow = 1, startCol = 1, colNames = TRUE )
-
-# Save the workbook (this overwrites the existing Excel file with the new data added)
-saveWorkbook(wb, filepath, overwrite = T)
-
-# close the connection
-dbDisconnect(con)
+# library(readxl)
+# ## Import Data from a the SQLite database
+# 
+# query.dxi.val <- "SELECT DISTINCT
+#                     CAST(a.Werte AS FLOAT) AS DxI800,
+#                    CAST(d.DoseResult AS FLOAT) AS DxI9000,
+#                     a.Bezeichnung,
+#                     a.Methode,
+#                     m.EINHEIT,
+#                     -- t.TestName,
+#                     d.DoseUnit --,
+#                     -- a.Probennummer,
+#                     -- d.Probennummer
+#                   FROM MeasurementData a
+#                     JOIN MethodData m ON a.Methode = m.Methode
+#                     JOIN TranslationData t ON a.Methode = t.Methode
+#                     JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+#                   WHERE a .Methode = '%s' AND a.Probennummer = d.Probennummer;"
+# 
+# validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
+# 
+# 
+# # write the result into a specific sheet of a specific xlsx file
+# # library(openxlsx)
+# 
+# 
+# # filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
+# filepath <- "vdata _DxI.xlsx"
+# 
+# # Load the Excel file)
+# wb <- loadWorkbook(filepath)
+# 
+# # Specify the sheet name where you want to write the data.
+# # If the sheet does not exist, it will be created.
+# sheet_name <- "DATA"
+# 
+# 
+# 
+# # clear data from the sheet
+# removeWorksheet(wb, sheet_name)
+# addWorksheet(wb, sheet_name)
+# # Write query execution date & time starting at a specific cell
+# writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1 )
+# 
+# # Write min_max_dates starting at a specific cell
+# # writeData(wb, sheet = sheet_name, min_max_dates, startRow = 1, startCol = 1, colNames = TRUE )
+# 
+# # Save the workbook (this overwrites the existing Excel file with the new data added)
+# saveWorkbook(wb, filepath, overwrite = T)
+# 
+# # close the connection
+# dbDisconnect(con)
 
 
 validation.data = NULL

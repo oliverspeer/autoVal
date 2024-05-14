@@ -1,52 +1,30 @@
-# libraries and db connection ----------------------------------------------------
+# Load required libraries and establish database connection ---------------------
 source("StartUp.R")
 StartUpRoutine()
 
-# setting ggplot theme------------------------------------------------------
-theme_set(
-  theme_grey() +
-    theme( text = element_text(size = 14),
-           axis.title = element_text(size = 16),
-           axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
-           axis.text.y = element_text(size = 14))
-)
 
-# shiny app ----------------------------------------------------------------
-# shinyOptions(cache = cache_mem(max_size = 5000e6))
-# Define UI------------------------------------------------------------------
+# Define UI----------------------------------------------------------------------
 ui <- fluidPage(
-  
   navbarPage(
-    title = div(img(src="logo_pos.png",  
-                    height = 28, 
-                    width = 130, 
-                    style = "margin:1px 3px", "  Klinische Chemie ")
-    ), 
-    # theme = shinytheme("paper"), 
+    title = div(img(src="logo_pos.png", height = 28, width = 130, style = "margin:1px 3px"), " Klinische Chemie"), 
     collapsible = TRUE,
     fluid = TRUE,
     
-
-    
-    # tabPanel-----------------------------------------------------------------------
     tabPanel("Methodenvalidation",
-             # fluidRow(
-             #   column(12, DTOutput("yearlyDevice"))
-             # ),
              selectInput("method", "Wähle die Methode", choices = NULL),
-             # fluidRow(
-             #   column(12, DTOutput("nSamples"))
-             # ),
-             actionButton("generate.report", "Erstelle Validationsbericht"))
+             fluidRow(
+               column(3, DTOutput("nSamples"))
+             ),
+             actionButton("generate.report", "Erstelle Validationsbericht")
+    )
   )
 )
 
-# Define server logic---------------------------------------------------------------------
-
+# Define server logic -----------------------------------------------------------
 server <- function(input, output, session) {
   
-  # Reactive value to store the method corresponding to the selected test name
-  selectedMethod <- reactiveVal()
+  # Reactive value to store the data corresponding to the selected test name
+  validation.data <- reactiveVal()
   
   # Update method choices based on the database
   updateSelectInput(session, "method",
@@ -54,38 +32,64 @@ server <- function(input, output, session) {
                                          WHERE SampleID IS NOT NULL 
                                          ORDER BY TestName ASC"))
   
-  # Observe changes in the selected TestName and update the Methode accordingly
-  observe({
-    testName <- input$method
-    if (!is.null(testName)) {
-      # Query to get the corresponding Method
-      methodQuery <- sprintf("SELECT Methode FROM TranslationData WHERE TestName = '%s'", testName)
-      methodResult <- dbGetQuery(con, methodQuery)
-      # Assume methodResult returns one row with one column named 'Method'
-      if (nrow(methodResult) > 0) {
-        selectedMethod(methodResult$Method[1])
-      } else {
-        selectedMethod(NULL)  # No method found
-      }
+  # Observe changes in the selected TestName and update the SQL query accordingly
+  observeEvent(input$method, { 
+    req(input$method)
+    query.dxi.val <- "SELECT DISTINCT
+                      CAST(a.Werte AS FLOAT) AS DxI800,
+                      CAST(d.DoseResult AS FLOAT) AS DxI9000,
+                      a.Bezeichnung,
+                      a.Methode,
+                      m.EINHEIT,
+                      d.DoseUnit
+                      FROM MeasurementData a
+                      JOIN MethodData m ON a.Methode = m.Methode
+                      JOIN TranslationData t ON a.Methode = t.Methode
+                      JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = '%s' AND a.Probennummer = d.Probennummer;"
+    
+    # Fetch data from the database
+    data <- dbGetQuery(con, sprintf(query.dxi.val, # input$
+                                      method))
+    
+    # Store the data in the reactive value
+    validation.data(data)
+    
+    # Write data to an Excel file
+    filepath <- "vdata _DxI.xlsx"
+    wb <- loadWorkbook(filepath)
+    sheet_name <- "DATA"
+    
+    # Clear data from the sheet
+    if (sheet_name %in% names(wb)) {
+      removeWorksheet(wb, sheet_name)
     }
+    addWorksheet(wb, sheet_name)
+    writeData(wb, sheet = sheet_name, x = validation.data(), startRow = 1, startCol = 1)
+    saveWorkbook(wb, filepath, overwrite = TRUE)
   })
+  
+  # Generate table with number of samples
+  output$nSamples <- renderDT({
+    req(validation.data())
+    data <- validation.data()
+    sample.count <- data.frame(
+      device = names(data[,1:2]),
+      n = c(length(data[,1]),
+            length(data[,2]))
+    )
+    datatable(sample.count)
+  })
+  
   
   
   # Generate report
   observeEvent(input$generate.report, {
-    # Ensure method is not NULL before rendering
-    if (!is.null(selectedMethod())) {
-      rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
-                            output_format = "all", 
-                            params = list(method = selectedMethod()) 
-                            )
-    } else {
-      # Handle case where no method is found
-      showNotification("No method found for the selected test name.", type = "error")
-    }
+    req(validation.data())  # Ensure that validation.data is not NULL before rendering
+    rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
+                      output_format = "all")
   })
 }
 
-
-# Run the application--------------------------------------------------------------
+# Run the application ----------------------------------------------------------
 shinyApp(ui = ui, server = server)
