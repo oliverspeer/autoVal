@@ -36,12 +36,12 @@ server <- function(input, output, session) {
   observeEvent(input$method, { 
     req(input$method)
     query.dxi.val <- "SELECT DISTINCT
-                      CAST(a.Werte AS FLOAT) AS DxI800,
-                      CAST(d.DoseResult AS FLOAT) AS DxI9000,
-                      a.Bezeichnung,
-                      a.Methode,
-                      m.EINHEIT,
-                      d.DoseUnit
+                      a.Werte AS DxI800,
+                      d.DoseResult AS DxI9000 --,
+                      -- a.Bezeichnung,
+                      -- a.Methode,
+                      -- m.EINHEIT,
+                      -- d.DoseUnit
                       FROM MeasurementData a
                       JOIN MethodData m ON a.Methode = m.Methode
                       JOIN TranslationData t ON a.Methode = t.Methode
@@ -49,8 +49,14 @@ server <- function(input, output, session) {
                       WHERE d.TestName = '%s' AND a.Probennummer = d.Probennummer;"
     
     # Fetch data from the database
-    data <- dbGetQuery(con, sprintf(query.dxi.val, # input$
+    data <- dbGetQuery(con, sprintf(query.dxi.val, #input$
                                       method))
+    # convert data to numeric
+    data[,1] <- as.numeric(data[,1])
+    data[,2] <- as.numeric(data[,2])
+    
+    # omit rows with NA values
+    data <- na.omit(data)
     
     # Store the data in the reactive value
     validation.data(data)
