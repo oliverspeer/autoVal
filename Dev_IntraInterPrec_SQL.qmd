@@ -19,16 +19,16 @@ StartUpRoutine()
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.L <- "SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
                   WHERE TestName = 'Ferritin' 
-                    AND SampleID REGEXP '[a-zA-Z]+1_\\d'
+                    AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
                     AND DoseUnit IS NOT NULL;"
 
 query.H <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
                   WHERE TestName = 'Ferritin' 
-                    AND SampleID REGEXP '[a-zA-Z]+2_\\d'
+                    AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
                     AND DoseUnit IS NOT NULL;"
 
 # execute the query
