@@ -81,8 +81,11 @@ dbDisconnect(con)
 
 
 # this  needs further imprvement, inadequate source!-------------------------------------
-val.crit <- read_excel("vdata _DxI.xlsx", sheet = "CRIT")
+# val.crit <- read_excel("vdata _DxI.xlsx", sheet = "CRIT")
 val.info <- read_excel("vdata _DxI.xlsx", sheet = "INFO")
+names(val.info)[2:3] <- c(paste(unique(validation.data$Bezeichnung),
+                                names(validation.data[1])),
+                          paste(unique(validation.data$Bezeichnung),names(validation.data[2])))
 val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
 ##-------------------------------------------------------------------------------------
   
