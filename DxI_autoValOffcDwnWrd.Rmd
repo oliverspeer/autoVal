@@ -14,22 +14,7 @@ params:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
-# if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
-#   install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
-# }
- # library(knitr)
- # library(tidyverse)
- # library(parallel)
- # library(robslopes)
- # library(readxl)
- # library(officedown)
- # library(officer)
- # library(mcr)
- # library(flextable)
-# 
-# library(rstudioapi)
- # library(DBI)
- # library(RSQLite)
+
 
  source("StartUp.R")
  StartUpRoutine()
@@ -42,74 +27,60 @@ method <- params$method
 
 ```
 
-<!-- Prepare libraries and import data from Excel -->
 
-<!-- create vectors method.x and method.y, run Passing Bablok regression -->
-
-<!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
 
 ```{r Datentabelle, echo=FALSE, message = FALSE, warning = FALSE}
-# library(readxl)
-# ## Import Data from a the SQLite database
-# 
-# query.dxi.val <- "SELECT DISTINCT
-#                     CAST(a.Werte AS FLOAT) AS DxI800,
-#                    CAST(d.DoseResult AS FLOAT) AS DxI9000,
-#                     a.Bezeichnung,
-#                     a.Methode,
-#                     m.EINHEIT,
-#                     -- t.TestName,
-#                     d.DoseUnit --,
-#                     -- a.Probennummer,
-#                     -- d.Probennummer
-#                   FROM MeasurementData a
-#                     JOIN MethodData m ON a.Methode = m.Methode
-#                     JOIN TranslationData t ON a.Methode = t.Methode
-#                     JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-#                   WHERE a .Methode = '%s' AND a.Probennummer = d.Probennummer;"
-# 
-# validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
-# 
-# 
-# # write the result into a specific sheet of a specific xlsx file
-# # library(openxlsx)
-# 
-# 
-# # filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
-# filepath <- "vdata _DxI.xlsx"
-# 
-# # Load the Excel file)
-# wb <- loadWorkbook(filepath)
-# 
-# # Specify the sheet name where you want to write the data.
-# # If the sheet does not exist, it will be created.
-# sheet_name <- "DATA"
-# 
-# 
-# 
-# # clear data from the sheet
-# removeWorksheet(wb, sheet_name)
-# addWorksheet(wb, sheet_name)
-# # Write query execution date & time starting at a specific cell
-# writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1 )
-# 
-# # Write min_max_dates starting at a specific cell
-# # writeData(wb, sheet = sheet_name, min_max_dates, startRow = 1, startCol = 1, colNames = TRUE )
-# 
-# # Save the workbook (this overwrites the existing Excel file with the new data added)
-# saveWorkbook(wb, filepath, overwrite = T)
-# 
-# # close the connection
-# dbDisconnect(con)
+
+# Import Data from a the SQLite database
+
+ query.dxi.val <- "SELECT DISTINCT
+                        a.Werte AS DxI800,
+                        d.DoseResult AS DxI9000,
+                        a.Bezeichnung,
+                        a.Methode,
+                        m.EINHEIT AS Einheit_800,
+                        d.DoseUnit AS Einheit_9000,
+                        d.Probennummer
+                      FROM MeasurementData a
+                        JOIN MethodData m ON a.Methode = m.Methode
+                        JOIN TranslationData t ON a.Methode = t.Methode
+                        JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE a.Methode = '%s' AND a.Probennummer = d.Probennummer;"
+    
+    # Fetch data from the database
+    validation.data <- NULL
+    validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
+    # convert data to numeric
+    validation.data[,1] <- as.numeric(validation.data[,1])
+    validation.data[,2] <- as.numeric(validation.data[,2])
+    
+    # omit rows with NA values
+    validation.data <- na.omit(validation.data)
+    
+    
+    
+    # # Write data to an Excel file
+    # filepath <- "vdata _DxI.xlsx"
+    # wb <- loadWorkbook(filepath)
+    # sheet_name <- "DATA"
+    # 
+    # # Clear data from the sheet
+    # if (sheet_name %in% names(wb)) {
+    #   removeWorksheet(wb, sheet_name)
+    # }
+    # addWorksheet(wb, sheet_name)
+    # writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1)
+    # saveWorkbook(wb, filepath, overwrite = TRUE)
+
+ # close the connection
+dbDisconnect(con)
 
 
-validation.data = NULL
-validation.data <- read_excel("vdata _DxI.xlsx", sheet = "DATA")
-#DxI800 <- as.numeric(query.dxi.val$Werte)
-#DxI9000 <- as.numeric(query.dxi.val$DoseResult)
-#validation.data <- data.frame(DxI800, DxI9000)
+# validation.data = NULL
+# validation.data <- read_excel("vdata _DxI.xlsx", sheet = "DATA")
 
-# this  needs further imprvement, wrong source!-------------------------------------
+
+# this  needs further imprvement, inadequate source!-------------------------------------
 val.crit <- read_excel("vdata _DxI.xlsx", sheet = "CRIT")
 val.info <- read_excel("vdata _DxI.xlsx", sheet = "INFO")
 val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
@@ -150,19 +121,20 @@ val.info |>  flextable() |>
 ## Messdaten, Mittelwerte und Differenzen 
   
 ```{r data_table, echo = FALSE, warning = FALSE, message = FALSE}
-table.one <- data.frame(seq.int(nrow(validation.data)),validation.data[,1:2])
-colnames(table.one)[1] = "# "
+table.one <- data.frame(seq.int(nrow(validation.data)),validation.data[,c(1,5,2,6)])
+colnames(table.one)[1]  <-  paste("# ",validation.data$Bezeichnung[1])
 
 # table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
-table.one$"delta.%" <- (round((100-table.one[[2]]*100/table.one[[3]]), digits = 1))
+table.one$"delta.%" <- (round((100-table.one[[2]]*100/table.one[[4]]), digits = 1))
+table.one$Probennummer <- validation.data$Probennummer
 
 table.one |> 
   flextable() |>  
   theme_vanilla() |>  
   bg(bg = "grey", part = "header") |> 
   align(align = "center", part = "all") |> 
-  bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
-  set_table_properties(width = 0.5, layout = "autofit")
+  bg(j = 6, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
+  set_table_properties(width = 0.6, layout = "autofit")
 ```
 
 \newpage
