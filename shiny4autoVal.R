@@ -56,8 +56,8 @@ server <- function(input, output, session) {
     datatable(sum.dat, options = list(pageLength = 50))
   })
   
-  # Reactive value to store the data corresponding to the selected test name
-  validation.data <- reactiveVal()
+  # Reactive value to store the method corresponding to the selected test name
+  selectedMethod <- reactiveVal()
   
   # Update method choices based on the database
   updateSelectInput(session, "method",
@@ -66,47 +66,47 @@ server <- function(input, output, session) {
                                          ORDER BY TestName ASC"))
   
   # Observe changes in the selected TestName and update the SQL query accordingly
-  observeEvent(input$method, { 
-    req(input$method)
-    query.dxi.val <- "SELECT
-                        a.Werte AS DxI800,
-                        d.DoseResult AS DxI9000,
-                        a.Bezeichnung,
-                        a.Methode,
-                        m.EINHEIT AS Einheit_800,
-                        d.DoseUnit AS Einheit_9000,
-                        d.Probennummer
-                      FROM MeasurementData a
-                        JOIN MethodData m ON a.Methode = m.Methode
-                        JOIN TranslationData t ON a.Methode = t.Methode
-                        JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                      WHERE d.TestName = '%s' AND a.Probennummer = d.Probennummer;"
-    
-    # Fetch data from the database
-    data <- dbGetQuery(con, sprintf(query.dxi.val, input$method))
-    # convert data to numeric
-    data[,1] <- as.numeric(data[,1])
-    data[,2] <- as.numeric(data[,2])
-    
-    # omit rows with NA values
-    data <- na.omit(data)
-    
-    # Store the data in the reactive value
-    validation.data(data)
-    
-    # Write data to an Excel file
-    filepath <- "vdata _DxI.xlsx"
-    wb <- loadWorkbook(filepath)
-    sheet_name <- "DATA"
-    
-    # Clear data from the sheet
-    if (sheet_name %in% names(wb)) {
-      removeWorksheet(wb, sheet_name)
-    }
-    addWorksheet(wb, sheet_name)
-    writeData(wb, sheet = sheet_name, x = validation.data(), startRow = 1, startCol = 1)
-    saveWorkbook(wb, filepath, overwrite = TRUE)
-  })
+  # observeEvent(input$method, { 
+  #   req(input$method)
+  #   query.dxi.val <- "SELECT
+  #                       a.Werte AS DxI800,
+  #                       d.DoseResult AS DxI9000,
+  #                       a.Bezeichnung,
+  #                       a.Methode,
+  #                       m.EINHEIT AS Einheit_800,
+  #                       d.DoseUnit AS Einheit_9000,
+  #                       d.Probennummer
+  #                     FROM MeasurementData a
+  #                       JOIN MethodData m ON a.Methode = m.Methode
+  #                       JOIN TranslationData t ON a.Methode = t.Methode
+  #                       JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+  #                     WHERE d.TestName = '%s' AND a.Probennummer = d.Probennummer;"
+  #   
+  #   # Fetch data from the database
+  #   data <- dbGetQuery(con, sprintf(query.dxi.val, input$method))
+  #   # convert data to numeric
+  #   data[,1] <- as.numeric(data[,1])
+  #   data[,2] <- as.numeric(data[,2])
+  #   
+  #   # omit rows with NA values
+  #   data <- na.omit(data)
+  #   
+  #   # Store the data in the reactive value
+  #   validation.data(data)
+  #   
+  #   # Write data to an Excel file
+  #   filepath <- "vdata _DxI.xlsx"
+  #   wb <- loadWorkbook(filepath)
+  #   sheet_name <- "DATA"
+  #   
+  #   # Clear data from the sheet
+  #   if (sheet_name %in% names(wb)) {
+  #     removeWorksheet(wb, sheet_name)
+  #   }
+  #   addWorksheet(wb, sheet_name)
+  #   writeData(wb, sheet = sheet_name, x = validation.data(), startRow = 1, startCol = 1)
+  #   saveWorkbook(wb, filepath, overwrite = TRUE)
+  # })
   
   # Generate table with number of samples
   # output$nSamples <- renderDT({
@@ -120,13 +120,29 @@ server <- function(input, output, session) {
   #   datatable(sample.count)
   # })
   
-  
+  # Observe changes in the selected TestName and update the Methode accordingly
+  observe({
+    testName <- input$method
+    if (!is.null(testName)) {
+      # Query to get the corresponding Method
+      methodQuery <- sprintf("SELECT Methode FROM TranslationData WHERE TestName = '%s'", testName)
+      methodResult <- dbGetQuery(con, methodQuery)
+      # Assume methodResult returns one row with one column named 'Method'
+      if (nrow(methodResult) > 0) {
+        selectedMethod(methodResult$Method[1])
+      } else {
+        selectedMethod(NULL)  # No method found
+      }
+    }
+  })
   
   # Generate report
   observeEvent(input$generate.report, {
-    req(validation.data())  # Ensure that validation.data is not NULL before rendering
+    req(selectedMethod())  # Ensure that selectedMethod is not NULL before rendering
     rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
-                      output_format = "all")
+                      output_format = "all",
+                      params = list(method = selectedMethod())
+                      )
   })
 }
 

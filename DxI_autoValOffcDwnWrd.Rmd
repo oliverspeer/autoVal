@@ -52,55 +52,47 @@ method <- params$method
 # library(readxl)
 # ## Import Data from a the SQLite database
 # 
-# query.dxi.val <- "SELECT DISTINCT
-#                     CAST(a.Werte AS FLOAT) AS DxI800,
-#                    CAST(d.DoseResult AS FLOAT) AS DxI9000,
-#                     a.Bezeichnung,
-#                     a.Methode,
-#                     m.EINHEIT,
-#                     -- t.TestName,
-#                     d.DoseUnit --,
-#                     -- a.Probennummer,
-#                     -- d.Probennummer
-#                   FROM MeasurementData a
-#                     JOIN MethodData m ON a.Methode = m.Methode
-#                     JOIN TranslationData t ON a.Methode = t.Methode
-#                     JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-#                   WHERE a .Methode = '%s' AND a.Probennummer = d.Probennummer;"
-# 
-# validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
-# 
-# 
-# # write the result into a specific sheet of a specific xlsx file
-# # library(openxlsx)
-# 
-# 
-# # filepath <- paste0( getActiveProject(), "/vdata _DxI.xlsx")
-# filepath <- "vdata _DxI.xlsx"
-# 
-# # Load the Excel file)
-# wb <- loadWorkbook(filepath)
-# 
-# # Specify the sheet name where you want to write the data.
-# # If the sheet does not exist, it will be created.
-# sheet_name <- "DATA"
-# 
-# 
-# 
-# # clear data from the sheet
-# removeWorksheet(wb, sheet_name)
-# addWorksheet(wb, sheet_name)
-# # Write query execution date & time starting at a specific cell
-# writeData(wb, sheet = sheet_name, x = validation.data, startRow = 1, startCol = 1 )
-# 
-# # Write min_max_dates starting at a specific cell
-# # writeData(wb, sheet = sheet_name, min_max_dates, startRow = 1, startCol = 1, colNames = TRUE )
-# 
-# # Save the workbook (this overwrites the existing Excel file with the new data added)
-# saveWorkbook(wb, filepath, overwrite = T)
-# 
-# # close the connection
-# dbDisconnect(con)
+ query.dxi.val <- "SELECT
+                        a.Werte AS DxI800,
+                        d.DoseResult AS DxI9000,
+                        a.Bezeichnung,
+                        a.Methode,
+                        m.EINHEIT AS Einheit_800,
+                        d.DoseUnit AS Einheit_9000,
+                        d.Probennummer
+                      FROM MeasurementData a
+                        JOIN MethodData m ON a.Methode = m.Methode
+                        JOIN TranslationData t ON a.Methode = t.Methode
+                        JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = '%s' AND a.Probennummer = d.Probennummer;"
+    
+    # Fetch data from the database
+    data <- dbGetQuery(con, sprintf(query.dxi.val, input$method))
+    # convert data to numeric
+    data[,1] <- as.numeric(data[,1])
+    data[,2] <- as.numeric(data[,2])
+    
+    # omit rows with NA values
+    data <- na.omit(data)
+    
+    # Store the data in the reactive value
+    validation.data(data)
+    
+    # Write data to an Excel file
+    filepath <- "vdata _DxI.xlsx"
+    wb <- loadWorkbook(filepath)
+    sheet_name <- "DATA"
+    
+    # Clear data from the sheet
+    if (sheet_name %in% names(wb)) {
+      removeWorksheet(wb, sheet_name)
+    }
+    addWorksheet(wb, sheet_name)
+    writeData(wb, sheet = sheet_name, x = validation.data(), startRow = 1, startCol = 1)
+    saveWorkbook(wb, filepath, overwrite = TRUE)
+
+ # close the connection
+dbDisconnect(con)
 
 
 validation.data = NULL
