@@ -32,7 +32,14 @@ server <- function(input, output, session) {
                   (SELECT DISTINCT DoseUnit
                    FROM DxIvalData AS sub
                    WHERE sub.TestName = main.TestName AND sub.DoseUnit IS NOT NULL
-                   LIMIT 1) AS Einheit
+                   LIMIT 1) AS Einheit_9000,
+                  (SELECT DISTINCT m.EINHEIT
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = main.TestName AND main.DoseUnit IS NOT NULL
+                      LIMIT 1) AS Einheit_800
                 FROM 
                   DxIvalData AS main
                 WHERE
@@ -40,6 +47,7 @@ server <- function(input, output, session) {
                 GROUP BY
                   TestName;"
   sum.dat <- dbGetQuery(con, sum.query)
+  
   
   prc.query <- "SELECT 
                   TestName AS DxI9000,
