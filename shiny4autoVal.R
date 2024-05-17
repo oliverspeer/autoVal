@@ -62,6 +62,24 @@ server <- function(input, output, session) {
                   TestName;"
   prc.dat <- dbGetQuery(con, prc.query)
   
+  unit.query <- "SELECT
+                  TestName AS Analyt,
+                  -- COUNT(*) AS n_Doppelmessungen,
+                      (SELECT DISTINCT m.EINHEIT
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = main.TestName AND m.EINHEIT IS NOT NULL
+                      LIMIT 1) AS Einheit_800
+                FROM 
+                  DxIvalData AS main
+                WHERE
+                  Probennummer IS NOT NULL
+                GROUP BY
+                  TestName;"
+  unit.dat <- dbGetQuery(con, unit.query)
+  
   output$summary <- renderDT({
     sum.dat <- merge(sum.dat, prc.dat, by = "DxI9000", all = TRUE)
     sum.dat[is.na(sum.dat)] <- 0
