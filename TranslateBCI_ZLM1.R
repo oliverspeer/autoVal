@@ -29,7 +29,11 @@ fwrite(query.bez.result, "C:/R_local/autoVal/query_bez_DxI_result.csv")
 setwd("C:/R_local/autoVal")
 
 # read DXI data
-val.dat <- read_excel(c("240307rawdata.xlsx", "240510_DXIrawdata", "240508_DXIrawdata", "240507_DXIrawdata", "240506_DXIrawdata"))
+file.list <- list.files(pattern = "rawdata.xlsx")
+data.list <- lapply(file.list, read_excel)
+val.dat <- do.call(rbind, data.list)
+
+#val.dat <- read_excel(c("240307rawdata.xlsx", "240510_DXIrawdata", "240508_DXIrawdata", "240507_DXIrawdata", "240506_DXIrawdata"))
 setDT(val.dat)
 
 # extract $ TestOrderCode and $ TestName into a new data.table
