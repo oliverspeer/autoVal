@@ -28,11 +28,20 @@ server <- function(input, output, session) {
   
   sum.query <- "SELECT
                   TestName AS DxI9000,
-                  COUNT(*) AS n_Doppelmessungen,
+                  COUNT(*) AS n_Messungen,
                   (SELECT DISTINCT DoseUnit
                    FROM DxIvalData AS sub
                    WHERE sub.TestName = main.TestName AND sub.DoseUnit IS NOT NULL
                    LIMIT 1) AS Einheit_9000,
+                  (SELECT 
+                      -- md.Bezeichnung as DxI800,
+                      COUNT(*) -- AS n_Messungen800
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.Probennummer = md.Probennummer AND d.Probennummer IS NOT NULL AND d.TestName = main.TestName
+                      ) AS n_Messungen_800,
                   (SELECT DISTINCT m.EINHEIT
                       FROM MeasurementData AS md
                       JOIN MethodData AS m ON md.Methode = m.Methode
@@ -43,7 +52,7 @@ server <- function(input, output, session) {
                 FROM 
                   DxIvalData AS main
                 WHERE
-                  Probennummer IS NOT NULL
+                  DoseResult <> 'No result'
                 GROUP BY
                   TestName;"
   sum.dat <- dbGetQuery(con, sum.query)
@@ -75,7 +84,7 @@ server <- function(input, output, session) {
                 FROM 
                   DxIvalData AS main
                 WHERE
-                  Probennummer IS NOT NULL
+                  DoseResult <> 'No result'
                 GROUP BY
                   TestName;"
   unit.dat <- dbGetQuery(con, unit.query)
@@ -89,6 +98,7 @@ server <- function(input, output, session) {
   # Reactive value to store the method corresponding to the selected test name
   selectedMethod <- reactiveVal()
   
+  
   # Update method choices based on the database
   updateSelectInput(session, "method",
                     choices = dbGetQuery(con, "SELECT DISTINCT TestName FROM DxIvalData 
@@ -99,7 +109,7 @@ server <- function(input, output, session) {
   
   # Observe changes in the selected TestName and update the Methode accordingly
   observe({
-    con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+    # con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
     testName <- input$method
     if (!is.null(testName)) {
       # Query to get the corresponding Method
@@ -118,10 +128,20 @@ server <- function(input, output, session) {
   # Generate report
   observeEvent(input$generate.report, {
     req(selectedMethod())  # Ensure that selectedMethod is not NULL before rendering
+    
+    # Define the output filename based on the current date
+    output.filename <- paste(format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), input$method, "Validation.docx", sep = "_")
+    
     rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
+                      output_file = output.filename,
                       output_format = "all",
                       params = list(method = selectedMethod())
                       )
+  })
+  
+  # Disconnect from the database
+  onStop(function() {
+    dbDisconnect(con)
   })
 }
 
