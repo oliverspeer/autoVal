@@ -23,12 +23,13 @@ StartUpRoutine()
 setwd("C:/R_local/autoVal")
 
 # function to rename duplicate column names
-rename_duplicates <- function(data) {
-  names(data) <- make.unique(names(data), sep = "")
-  return(data)
-}
+# rename_duplicates <- function(data) {
+#   names(data) <- make.unique(names(data), sep = "")
+#   return(data)
+# }
 # read DXI data
-val.dat <- read_excel("C:/R_local/autoVal/240305_DxIrawdata.xlsx")
+# val.dat <- read_excel("C:/R_local/autoVal/240521_DXIrawdata.xlsx")
+val.dat <- read_excel("I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geräte\\DxI9000\\Validation\\2_Rohdaten\\240524_DXIrawdata.xlsx")
 val.dat <- val.dat |>  
   rename(
     PackRevision = `PackRevision...77`,
@@ -86,6 +87,15 @@ dbExecute(con, create.table.statement)
 dbWriteTable(con, "DxIvalData", val.dat, append = TRUE, row.names = FALSE)
 ```
 
+```{r}
+# for deletion of a table
+# dbExecute(con, "DROP TABLE IF EXISTS DxIvalData")
+
+# close the connection
+# dbDisconnect(con)
+```
+
+
 
 ```{r BCI_INLAB tranlation into SQL db, warning=FALSE, message=FALSE}
 
@@ -106,6 +116,7 @@ create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS TranslationData (",
                                 ", TranslationID INTEGER PRIMARY KEY AUTOINCREMENT",
                                 ", FOREIGN KEY (Methode) REFERENCES MethodData (Methode)",
                                 ", FOREIGN KEY (TestOrderCode) REFERENCES DxIvalData (TestOrderCode)",
+                                #", UNIQUE (Methode, TestOrderCode)",
                                 ")") 
 
 # connect to SQLite DB
@@ -117,31 +128,35 @@ dbExecute(con, create.table.statement)
 # insert val.dat into the SQLite DB
 dbWriteTable(con, "TranslationData", BCI_INLAB, append = TRUE, row.names = FALSE)
 
+
+# for deletion of a table
+# dbExecute(con, "DROP TABLE IF EXISTS TranslationData")
+
 dbDisconnect(con)
 ```
 
 ```{r, warning=FALSE, message=FALSE}
 
-query.dxi.val <- "SELECT DISTINCT a.Methode, 
-                    a.Bezeichnung, 
-                    a.Werte, 
-                    m.EINHEIT, 
-                    t.TestName, 
-                    d.DoseResult, 
-                    d.DoseUnit, 
-                    a.Probennummer, 
-                    d.Probennummer  
-                  FROM MeasurementData a 
-                    JOIN MethodData m ON a.Methode = m.Methode
-                    JOIN TranslationData t ON a.Methode = t.Methode
-                    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                  WHERE a.Bezeichnung = 'Ferritin' AND a.Probennummer = d.Probennummer;"
-
-con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
-
-query.dxi.val <- dbGetQuery(con, query.dxi.val)
-
-dbDisconnect(con)
+# query.dxi.val <- "SELECT DISTINCT a.Methode, 
+#                     a.Bezeichnung, 
+#                     a.Werte, 
+#                     m.EINHEIT, 
+#                     t.TestName, 
+#                     d.DoseResult, 
+#                     d.DoseUnit, 
+#                     a.Probennummer, 
+#                     d.Probennummer  
+#                   FROM MeasurementData a 
+#                     JOIN MethodData m ON a.Methode = m.Methode
+#                     JOIN TranslationData t ON a.Methode = t.Methode
+#                     JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+#                   WHERE a.Bezeichnung = 'Ferritin' AND a.Probennummer = d.Probennummer;"
+# 
+# con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+# 
+# query.dxi.val <- dbGetQuery(con, query.dxi.val)
+# 
+# dbDisconnect(con)
 
 # query is further used in DxI_autoValOffcDwnWrd.Rmd
 
