@@ -1,9 +1,26 @@
+
+
 ---
-title: "Validierung DxI9000"
+title: "DxI9000 Validierung"
 author: ""
 format: html
+include-in-header:
+  text: |
+    <style>
+      .title {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .title img {
+        margin-right: 10px;
+      }
+    </style>
 editor: visual
 ---
+
+
+
 
 ## Vergleich Anzahl Daten DxI9000 und DxI800
 
@@ -99,6 +116,12 @@ cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
 
 
 ```
+
+<div class="title">
+  <h1> </h1>
+  <img src="www/logo_pos.png" alt="Logo" style="height: 30px;">
+</div>
+
 
 ```{r, rendering, echo=FALSE, message=FALSE, warning=FALSE}
  # Define the output filename based on the current date

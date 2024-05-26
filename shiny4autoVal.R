@@ -97,7 +97,7 @@ server <- function(input, output, session) {
   })
   
   observeEvent(input$update.Overview, {
-    output.filename <- paste(format(Sys.Date(), "%Y-%m-%d"), "Daten_Übersicht_DxI9000_Validation.html", sep = "_")
+    output.filename <-  "Daten_Übersicht_DxI9000_Validation.html"
     quarto_render("Übersicht_HTML.qmd", 
                   output_file = output.filename, 
                   output_format = "all")
