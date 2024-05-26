@@ -14,6 +14,7 @@ ui <- fluidPage(
              fluidRow(
                column(9, DTOutput("summary"))
                ),
+             actionButton("update.Overview", "Aktualisiere HTML Übersicht"),
              selectInput("method", "Wähle die Methode", choices = NULL),
              # fluidRow(
              #   column(3, DTOutput("nSamples"))
@@ -93,6 +94,13 @@ server <- function(input, output, session) {
     sum.dat <- merge(sum.dat, prc.dat, by = "DxI9000", all = TRUE)
     sum.dat[is.na(sum.dat)] <- 0
     datatable(sum.dat, options = list(pageLength = 50))
+  })
+  
+  observeEvent(input$update.Overview, {
+    output.filename <- paste(format(Sys.Date(), "%Y-%m-%d"), "Daten_Übersicht_DxI9000_Validation.html", sep = "_")
+    quarto_render("Übersicht_HTML.qmd", 
+                  output_file = output.filename, 
+                  output_format = "all")
   })
   
   # Reactive value to store the method corresponding to the selected test name
