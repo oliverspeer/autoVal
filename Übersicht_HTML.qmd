@@ -1,0 +1,114 @@
+---
+title: "Übersicht_HTML"
+author: "Oliver Speer"
+format: html
+editor: visual
+---
+
+## Vergleich Anzahl Daten DxI9000 und DxI800
+
+```{r, startup, echo=FALSE, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
+```
+
+```{r, SQL queries, echo=FALSE, message=FALSE, warning=FALSE}
+
+sum.query <- "SELECT
+                  TestName AS DxI9000,
+                  COUNT(*) AS n_Messungen,
+                  (SELECT DISTINCT DoseUnit
+                   FROM DxIvalData AS sub
+                   WHERE sub.TestName = main.TestName AND sub.DoseUnit IS NOT NULL
+                   LIMIT 1) AS Einheit_9000,
+                  (SELECT 
+                      -- md.Bezeichnung as DxI800,
+                      COUNT(*) -- AS n_Messungen800
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.Probennummer = md.Probennummer AND d.Probennummer IS NOT NULL AND d.TestName = main.TestName
+                      ) AS n_Messungen_800,
+                  (SELECT DISTINCT m.EINHEIT
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = main.TestName AND main.DoseUnit IS NOT NULL
+                      LIMIT 1) AS Einheit_800
+                FROM 
+                  DxIvalData AS main
+                WHERE
+                  DoseResult <> 'No result'
+                GROUP BY
+                  TestName;"
+  sum.dat <- dbGetQuery(con, sum.query)
+  
+  
+  prc.query <- "SELECT 
+                  TestName AS DxI9000,
+                  COUNT(*) AS n_QC_Messungen
+                FROM 
+                  DxIvalData
+                WHERE
+                  Probennummer IS NULL 
+                  AND SampleID LIKE '%QC%' 
+                  AND DoseResult <> 'No result'
+                GROUP BY
+                  TestName;"
+  prc.dat <- dbGetQuery(con, prc.query)
+  
+  # unit.query <- "SELECT
+  #                 TestName AS Analyt,
+  #                 -- COUNT(*) AS n_Doppelmessungen,
+  #                     (SELECT DISTINCT m.EINHEIT
+  #                     FROM MeasurementData AS md
+  #                     JOIN MethodData AS m ON md.Methode = m.Methode
+  #                     JOIN TranslationData AS t ON md.Methode = t.Methode
+  #                     JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+  #                     WHERE d.TestName = main.TestName AND m.EINHEIT IS NOT NULL
+  #                     LIMIT 1) AS Einheit_800
+  #               FROM 
+  #                 DxIvalData AS main
+  #               WHERE
+  #                 DoseResult <> 'No result'
+  #               GROUP BY
+  #                 TestName;"
+  # unit.dat <- dbGetQuery(con, unit.query)
+  # 
+
+``` 
+
+```{r, echo=FALSE}
+
+    sum.dat <- merge(sum.dat, prc.dat, by = "DxI9000", all = TRUE)
+    sum.dat[is.na(sum.dat)] <- 0
+    sum.dat |> 
+      flextable() |>  
+        theme_vanilla() |>  
+        bg(bg = "grey", part = "header") |> 
+        align(align = "center", part = "all") |> 
+        bg(j = 4, bg = scales::col_numeric(palette = c("red", "green"), domain = c(0, 150))) |> 
+        set_table_properties(width = 0.6, layout = "autofit")
+       
+```
+
+```{r, sysDate, echo=FALSE, message=FALSE, warning=FALSE}
+cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
+
+
+```
+
+```{r, rendering, echo=FALSE, message=FALSE, warning=FALSE}
+ # Define the output filename based on the current date
+    # output.filename <- paste(format(Sys.Date(), "%Y-%m-%d"), "Daten_Übersicht_DxI9000_Validation.docx", sep = "_")
+    # 
+    # quarto_render("Übersicht_HTML.qmd", 
+    #                   output_file = output.filename,
+    #                   output_format = "all"
+    #                   )
+
+```
+
+
