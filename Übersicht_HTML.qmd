@@ -1,6 +1,6 @@
 ---
-title: "Übersicht_HTML"
-author: "Oliver Speer"
+title: "Validierung DxI9000"
+author: ""
 format: html
 editor: visual
 ---
@@ -78,7 +78,7 @@ sum.query <- "SELECT
   # unit.dat <- dbGetQuery(con, unit.query)
   # 
 
-``` 
+```
 
 ```{r, echo=FALSE}
 
@@ -110,5 +110,3 @@ cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
     #                   )
 
 ```
-
-
