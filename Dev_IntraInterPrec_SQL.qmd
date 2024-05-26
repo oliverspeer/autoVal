@@ -15,25 +15,37 @@ StartUpRoutine()
 
 ```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
+nameQuery <- sprintf("SELECT TestName FROM TranslationData WHERE Methode = '%s'", method)
+name <- dbGetQuery(con, nameQuery)[,1]
+
 # enable and register the REGEXP function in the SQLite connection
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L <- "SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
-                  WHERE TestName = 'Ferritin' 
+                  WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
-                    AND DoseUnit IS NOT NULL;"
+                    AND DoseUnit IS NOT NULL
+                  GROUP BY
+                    TestStartDT;", name)
 
-query.H <- "SELECT TestName, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.H <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
                   FROM DxIvalData
-                  WHERE TestName = 'Ferritin' 
+                  WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
-                    AND DoseUnit IS NOT NULL;"
+                    AND DoseUnit IS NOT NULL;", name)
 
 # execute the query
-prc.L.data <- dbGetQuery(con, query.L)
+prc.L.data <- dbGetQuery(con, query.L) 
+prc.L.data <-  prc.L.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+prc.L.data <- head(prc.L.data, 25)
+
 prc.H.data <- dbGetQuery(con, query.H)
+prc.H.data <-  prc.H.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+prc.H.data <- head(prc.H.data, 25)
+
+
 
 ```
 
@@ -71,22 +83,22 @@ prc.data.H <- calculate_aov_infos(H.long)
 #     )
 #   ),)
 
-
+val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
 
 intra.df <- data.frame(
   "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
   L = c(
     paste(prc.data.L$N),
     paste(val.prec$Ziel_intra1[1]),
-    paste(prc.data.L$mean ),
-    paste(prc.data.L$sd),
+    paste(round(prc.data.L$mean, 2) ),
+    paste(round(prc.data.L$sd, 2) ),
     paste(round(prc.data.L$Vwithin, 2))
   ),
   H = c(
     paste(prc.data.H$N),
     paste(val.prec$Ziel_intra2[1]),
-    paste(prc.data.H$mean ),
-    paste(prc.data.H$sd),
+    paste(round(prc.data.H$mean, 2) ),
+    paste(round(prc.data.H$sd, 2)),
     paste(round(prc.data.H$Vwithin, 2))
   )
 )
@@ -94,18 +106,18 @@ intra.df <- data.frame(
 inter.df <- data.frame(
   "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
   L = c(
-    paste(prec.data.stat$n),
+    paste(prc.data.L$n),
     paste(val.prec$Ziel_inter1[1]),
-    paste(prec.data.stat$Messwert_inter1_Mittelwert),
-    paste(prec.data.stat$Messwert_inter1_StabW),
-    paste(prec.data.stat$Messwert_inter1_VK)
+    paste(round(prc.data.L$mean, 2)),
+    paste(round(prc.data.L$sd, 2)),
+    paste(round(prc.data.L$Vbetween), 2)
   ),
   H = c(
-    paste(prec.data.stat$n),
+    paste(prc.data.H$n),
     paste(val.prec$Ziel_inter2[1]),
-    paste(prec.data.stat$Messwert_inter2_Mittelwert),
-    paste(prec.data.stat$Messwert_inter2_StabW),
-    paste(prec.data.stat$Messwert_inter2_VK)
+    paste(round(prc.data.H$mean), 2),
+    paste(round(prc.data.H$sd), 2),
+    paste(round(prc.data.H$Vbetween), 2)
   )
 )
 
