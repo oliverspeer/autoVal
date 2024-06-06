@@ -1,4 +1,4 @@
-
+# prepare libraries and database connection--------------------------
 
 setwd("H:/R/autoVal_H")
 source("StartUp.R")
@@ -6,9 +6,7 @@ StartUpRoutine()
 
 
 
-# Daten einlesen
-
-
+# read Raw Data------------------------------------------------------
 # Define the raw data directory 
 dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geräte\\DxI9000\\Validation\\2_Rohdaten\\"
 
@@ -35,10 +33,11 @@ if (length(csv.files) > 0) {
 
   val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
   
-  # insert val.dat into the SQLite DB
+  # insert val.dat into the SQLite DB--------------------------------
+  
   dbWriteTable(con, "DxIvalData", val.dat, append = TRUE, row.names = FALSE)
 
-  # Disconnect from the database
+  # Disconnect from the database -----------------------------------
   dbDisconnect(con)
 } else {
   print("No raw data files found.")
