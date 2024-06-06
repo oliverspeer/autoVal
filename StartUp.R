@@ -26,7 +26,10 @@ StartUpRoutine <- function() {
                 "shinyjs", 
                 "shinycssloaders", 
                 "DT",
-                "quarto"
+                "quarto",
+                "readr",
+                "fs",
+                "units"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them
