@@ -49,7 +49,7 @@ StartUpRoutine <- function() {
     if (os == "Linux") {
       # Path for Linux (Ubuntu)
       # path <- "/home/olli/R_local/labStat/ClinicalChemistry_1.db"
-      assign("path", "/home/olli/R_local/labStat/ClinicalChemistry_2.db", envir = .GlobalEnv)
+      assign("path", "/home/olli/R_local/autoVal/ClinicalChemistry_2.db", envir = .GlobalEnv)
     } else if (os == "Windows") {
       # Path for Windows
       # Adjust the path as necessary for your Windows setup
