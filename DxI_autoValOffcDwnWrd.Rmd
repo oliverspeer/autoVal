@@ -35,7 +35,7 @@ method <- params$method
 
  query.dxi.val <- "SELECT DISTINCT
                         a.Werte AS DxI800,
-                        d.DoseResult AS DxI9000,
+                        d.DoseResult_c AS DxI9000,
                         a.Bezeichnung,
                         a.Methode,
                         m.EINHEIT AS Einheit_800,
@@ -45,14 +45,14 @@ method <- params$method
                         JOIN MethodData m ON a.Methode = m.Methode
                         JOIN TranslationData t ON a.Methode = t.Methode
                         JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                      WHERE a.Methode = '%s' AND a.Probennummer = d.Probennummer;"
+                      WHERE a.Methode = '%s' AND a.Probennummer = d.Probennummer AND d.DoseResult <> 'No result';"
     
     # Fetch data from the database
     validation.data <- NULL
     validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
     # convert data to numeric
     validation.data[,1] <- as.numeric(validation.data[,1])
-    validation.data[,2] <- as.numeric(validation.data[,2])
+    # validation.data[,2] <- as.numeric(validation.data[,2])
     
     # omit rows with NA values
     validation.data <- na.omit(validation.data)
@@ -135,7 +135,7 @@ name <- dbGetQuery(con, nameQuery)[1, 1]
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
                   FROM DxIvalData
                   WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
@@ -143,7 +143,7 @@ query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS F
                   GROUP BY
                     TestStartDT;", name)
 
-query.H <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult AS FLOAT) AS DoseResult, DoseUnit
+query.H <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
                   FROM DxIvalData
                   WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'

@@ -4,13 +4,13 @@ format: html
 editor: visual
 ---
 
-```{r, echo=FALSE, warning=FALSE, message=FALSE}
+```{r libraries & db con, echo=FALSE, warning=FALSE, message=FALSE}
 #prepare libraries
-library(readxl)
-library(data.table)
-library(tidyverse)
-library(DBI)
-library(RSQLite)
+# library(readxl)
+# library(data.table)
+# library(tidyverse)
+# library(DBI)
+# library(RSQLite)
 
 source("StartUp.R")
 StartUpRoutine()
@@ -20,7 +20,7 @@ StartUpRoutine()
 # Daten einlesen
 
 ```{r import valData, warning=FALSE, message=FALSE}
-setwd("C:/R_local/autoVal")
+setwd("/home/olli/R_local/autoVal")
 
 # function to rename duplicate column names
 # rename_duplicates <- function(data) {
@@ -29,7 +29,7 @@ setwd("C:/R_local/autoVal")
 # }
 # read DXI data
 # val.dat <- read_excel("C:/R_local/autoVal/240521_DXIrawdata.xlsx")
- dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\"
+ dir.rawdata <- "/home/olli/R_local/autoVal/2_Rohdaten/"
  
  # List all raw data CSV files
  csv.files <- list.files(path = dir.rawdata, pattern = "*.csv", full.names = TRUE)
@@ -54,24 +54,26 @@ setwd("C:/R_local/autoVal")
    
    val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
   #  val.dat$DoseResult <- as.numeric(val.dat$DoseResult)
+   val.dat.order <- names(val.dat)
  }
 ```
 
 ```{r}
  # load mol masses table-----------------------------------------------------------------------------------------------------
- df.mol.mass <- read_excel("C:/R_local/autoVal/Dev_changeUnitsDxI9000.xlsx") # Dev_changeUnitsDxI9000.xlsx written manually
- save(df.mol.mass, file = "mol_mass.RData")
+ # df.mol.mass <- read_excel("Dev_changeUnitsDxI9000.xlsx") # Dev_changeUnitsDxI9000.xlsx written manually
+  #save(df.mol.mass, file = "mol_mass.RData")
  load("mol_mass.RData")
  
  
  sum.dat <- setDT(df.mol.mass)
  sum.dat$molar_mass <- as.numeric(sum.dat$`molar_mass(g/mol)`)
 ```
+
 ```{r}
-df <- data.frame(cbind(val.dat$TestOrderCode, val.dat$TestName, val.dat$DoseResult, val.dat$DoseUnit))
+df <- data.frame(cbind(val.dat$TestCompleteDT, val.dat$SampleID , val.dat$TestOrderCode, val.dat$TestName, val.dat$DoseResult, val.dat$DoseUnit))
 
 # Rename columns
-colnames(df) <- c("TestOrderCode", "TestName", "DoseResult", "DoseUnit")
+colnames(df) <- c("TestCompleteDT", "SampleID", "TestOrderCode", "TestName", "DoseResult", "DoseUnit")
 
  # Merge data tables
 merged.dat <- merge(df, sum.dat, by = "TestOrderCode", all.x = TRUE)
@@ -83,9 +85,7 @@ merged.dat$DoseResult <- as.numeric(merged.dat$DoseResult)
 
 ```
 
-
-
-```{r}
+```{r fun conert units}
 # Function to convert units to a standard form
    convert_to_standard <- function(unit) {
      install_unit("IU", "umol/min", "international unit")
@@ -111,6 +111,7 @@ merged.dat$DoseResult <- as.numeric(merged.dat$DoseResult)
              "nmol/l" = set_units(1, nmol/l),
              "µmol/l" = set_units(1, umol/l),
              "pmol/l" = set_units(1, pmol/l),
+             "pmol/L" = set_units(1, pmol/l),
              "ng/l" = set_units(1, ng/l),
              "pg/mL" = set_units(1, pg/ml),
              "µg/dL" = set_units(1, ug/dl),
@@ -127,15 +128,17 @@ merged.dat$DoseResult <- as.numeric(merged.dat$DoseResult)
            )
          
            # Convert to lowercase to handle case insensitivity
-           unit_lower <- tolower(unit)
+           # unit_lower <- tolower(unit)
            
              # Check if unit exists in dictionary
-             if (!unit_lower %in% names(unit_dict)) {
+             if (!unit #_lower 
+                 %in% names(unit_dict)) {
                  message(paste("Unit", unit, "not found in dictionary."))
                  return(NULL)
                }
            
-             return(unit_dict[[unit_lower]])
+             return(unit_dict[[unit #_lower
+                               ]])
          }
 ```
 
@@ -170,80 +173,16 @@ for (i in 1:n){
 ```
 
 
-
-```{r}
- # Function to compare units and convert if necessary
-     compare_and_convert_single <- function(dose_results, dose_unit, einheit_800, molar_mass) {
-         dose_results <- as.numeric(dose_results)  # Ensure dose_result is numeric
-         
-           # Convert units to standard form
-           standard_from_unit <- tryCatch({
-               convert_to_standard(dose_unit)
-             }, error = function(e) {
-                 return(NULL)
-               })
-           
-             standard_to_unit <- tryCatch({
-                 convert_to_standard(einheit_800)
-               }, error = function(e) {
-                   return(NULL)
-                 })
-             
-               if (is.null(standard_from_unit) || is.null(standard_to_unit)) {
-                   message(paste("Unit conversion failed for units:", dose_unit, "and", einheit_800))
-                   return(NA)  # Return NA for unrecognized units
-                 }
-             
-               # Compare the units
-               is_same_unit <- tryCatch({
-                   isTRUE(all.equal(standard_from_unit, standard_to_unit))
-                 }, error = function(e) {
-                     FALSE
-                   })
-               
-                 # If units are not the same, convert the result to molar concentration
-                 if (!is_same_unit) {
-                     converted_result <- set_units(dose_results, convert_to_standard(dose_unit), mode = "standard") / 
-                         set_units(molar_mass, "g/mol") / 
-                         set_units(1, einheit_800, mode = "standard")
-                     # converted_result <- convert_to_molar(dose_results, standard_from_unit, molar_mass)
-                       return(as.numeric(converted_result))
-                   } else {
-                       return(dose_results)
-                     }
-             }
-```
-
-```{r}
- # Function to iterate over each row and apply unit conversion
-       compare_and_convert <- function(dose_results, dose_units, einheit_800s, molar_masses) {
-           n <- length(dose_results)
-           results <- numeric(n)
-           
-             for (i in 1:n) {
-                 results[i] <- compare_and_convert_single(dose_results[i], dose_units[i], einheit_800s[i], molar_masses[i])
-               }
-           
-             return(results)
-         }
-```
-
 ```{r}
            # Merge data tables
-             merged.dat <- merge(val.dat, sum.dat, by = "TestOrderCode", all.x = TRUE)
-             # Apply the comparison and conversion function row by row
-               merged.dat <- merged.dat %>%
-                   rowwise() %>%
-                   mutate(
-                       Result = compare_and_convert_single(DoseResult, DoseUnit, Einheit_800, molar_mass)
-                     ) %>%
-                   ungroup()
-               # View the updated results
-                 # print(merged.dat$Result)
-                 # print(merged.dat$DoseResult)
+val.dat <- merge(val.dat, merged.dat[, c("TestCompleteDT", "SampleID", "DoseResult_c", "Einheit_800")], by = c('TestCompleteDT', "SampleID"),  all.x = TRUE)
 
-val.dat$DoseResult.c <- merged.dat$Result                 
-val.dat$DoseUnit.c <- merged.dat$Einheit_800
+new.col.order <- c("TestOrderCode", "TestName","SampleID", "Probennummer", "DoseResult", "DoseUnit", "DoseResult_c", "Einheit_800", setdiff(val.dat.order, c("TestOrderCode", "TestName", "SampleID", "Probennummer", "DoseResult", "DoseUnit", "DoseResult_c", "Einheit_800"))) 
+
+setcolorder(val.dat, new.col.order)
+# 
+# val.dat$DoseResult.c <- merged.dat$Result                 
+# val.dat$DoseUnit.c <- merged.dat$Einheit_800
 ```
 
 ```{r prepare valData SQL TABLE, warning=FALSE, message=FALSE}
@@ -282,7 +221,7 @@ create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS DxIvalData (",
 con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
 
 # create the table in the SQLite DB
-dbExecute(con, create.table.statement)
+# dbExecute(con, create.table.statement)
 ```
 
 ```{r transfer valData into SQL db, warning=FALSE, message=FALSE}
