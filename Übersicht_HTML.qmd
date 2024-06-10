@@ -1,5 +1,3 @@
-
-
 ---
 title: "DxI9000 Validierung"
 author: ""
@@ -19,9 +17,6 @@ include-in-header:
 editor: visual
 ---
 
-
-
-
 ## Vergleich Anzahl Daten DxI9000 und DxI800
 
 ```{r, startup, echo=FALSE, message=FALSE, warning=FALSE}
@@ -31,22 +26,36 @@ StartUpRoutine()
 
 ```{r, SQL queries, echo=FALSE, message=FALSE, warning=FALSE}
 
-sum.query <- "SELECT
-                  TestName AS DxI9000,
-                  COUNT(*) AS n_Messungen,
+n.single.query <- "
+                  SELECT
+                      (SELECT DISTINCT md.Methode
+                      FROM MeasurementData AS md
+                      JOIN MethodData AS m ON md.Methode = m.Methode
+                      JOIN TranslationData AS t ON md.Methode = t.Methode
+                      JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE d.TestName = main.TestName AND main.DoseUnit IS NOT NULL
+                      LIMIT 1) AS inlab,
+                      
+                    TestName AS DxI9000,
+                    
+                    COUNT(*) AS n,
+                      
+                      
                   (SELECT DISTINCT DoseUnit
-                   FROM DxIvalData AS sub
-                   WHERE sub.TestName = main.TestName AND sub.DoseUnit IS NOT NULL
-                   LIMIT 1) AS Einheit_9000,
+                       FROM DxIvalData AS sub
+                       WHERE sub.TestName = main.TestName AND sub.DoseUnit IS NOT NULL
+                       LIMIT 1) AS Einheit,
+                  
                   (SELECT 
                       -- md.Bezeichnung as DxI800,
-                      COUNT(*) -- AS n_Messungen800
+                      COUNT(*) -- AS n_800
                       FROM MeasurementData AS md
                       JOIN MethodData AS m ON md.Methode = m.Methode
                       JOIN TranslationData AS t ON md.Methode = t.Methode
                       JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
                       WHERE d.Probennummer = md.Probennummer AND d.Probennummer IS NOT NULL AND d.TestName = main.TestName
-                      ) AS n_Messungen_800,
+                      ) AS n_800,
+                      
                   (SELECT DISTINCT m.EINHEIT
                       FROM MeasurementData AS md
                       JOIN MethodData AS m ON md.Methode = m.Methode
@@ -54,27 +63,98 @@ sum.query <- "SELECT
                       JOIN DxIvalData AS d ON t.TestOrderCode = d.TestOrderCode
                       WHERE d.TestName = main.TestName AND main.DoseUnit IS NOT NULL
                       LIMIT 1) AS Einheit_800
+                  
                 FROM 
                   DxIvalData AS main
                 WHERE
                   DoseResult <> 'No result'
                 GROUP BY
                   TestName;"
-  sum.dat <- dbGetQuery(con, sum.query)
+n.single.dat <- dbGetQuery(con, n.single.query)
   
+
+n.double.query <- "
+  SELECT 
+    subquery.TestName AS DxI9000,
+    -- subquery.Methode,
+    -- subquery.TestOrderCode,
+    COUNT(*) AS n_Doppel,
+    subquery.CurveExpirationDT AS Verfallsdatum
+  FROM (
+    SELECT DISTINCT
+      a.Werte AS DxI800,
+      d.DoseResult_c AS DxI9000,
+      a.Bezeichnung,
+      a.Methode,
+      m.EINHEIT AS Einheit_800,
+      d.DoseUnit AS Einheit_9000,
+      d.Probennummer,
+      d.TestName,
+      d.CurveExpirationDT
+    FROM MeasurementData a
+    JOIN MethodData m ON a.Methode = m.Methode
+    JOIN TranslationData t ON a.Methode = t.Methode
+    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+    WHERE a.Probennummer = d.Probennummer 
+      AND d.DoseResult <> 'No result'
+  ) AS subquery
+  GROUP BY subquery.TestName, 
+        -- subquery.TestOrderCode, 
+           subquery.Methode;
+"
+
+n.double.dat <- dbGetQuery(con, n.double.query)
+n.double.dat$Verfallsdatum <- as.Date(n.double.dat$Verfallsdatum, format = "%m-%d-%Y")
   
-  prc.query <- "SELECT 
+
+
+# enable and register the REGEXP function in the SQLite connection
+initExtension(con, extension = "regexp")
+prc.L1.query <- "SELECT 
                   TestName AS DxI9000,
-                  COUNT(*) AS n_QC_Messungen
+                  COUNT(*) AS _n_QC_Messungen
                 FROM 
                   DxIvalData
                 WHERE
                   Probennummer IS NULL 
-                  AND SampleID LIKE '%QC%' 
+                  AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
                   AND DoseResult <> 'No result'
                 GROUP BY
                   TestName;"
-  prc.dat <- dbGetQuery(con, prc.query)
+L1 <- dbGetQuery(con, prc.L1.query)
+
+prc.L2.query <- "SELECT 
+                  TestName AS DxI9000,
+                  COUNT(*) AS _n_QC_Messungen
+                FROM 
+                  DxIvalData
+                WHERE
+                  Probennummer IS NULL 
+                  AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
+                  AND DoseResult <> 'No result'
+                GROUP BY
+                  TestName;"
+L2 <- dbGetQuery(con, prc.L2.query)
+
+prc.L3.query <- "SELECT 
+                  TestName AS DxI9000,
+                  COUNT(*) AS _n_QC_Messungen
+                FROM 
+                  DxIvalData
+                WHERE
+                  Probennummer IS NULL 
+                  AND SampleID REGEXP '[a-zA-Z]+3' --_\\d'
+                  AND DoseResult <> 'No result'
+                GROUP BY
+                  TestName;"
+L3 <- dbGetQuery(con, prc.L3.query)
+
+prc.dat <- data.frame(L1$`_n_QC_Messungen` , 
+                 L2$'_n_QC_Messungen' , 
+                 L3$'_n_QC_Messungen', 
+                 L1$DxI9000)
+colnames(prc.dat) <- c("n_L1", "n_L2", "n_L3", "DxI9000")
+
   
   # unit.query <- "SELECT
   #                 TestName AS Analyt,
@@ -99,14 +179,38 @@ sum.query <- "SELECT
 
 ```{r, echo=FALSE}
 
-    sum.dat <- merge(sum.dat, prc.dat, by = "DxI9000", all = TRUE)
+    sum.dat <- merge(n.single.dat, prc.dat, by = "DxI9000", all = TRUE)
+    sum.dat <- merge(sum.dat, n.double.dat, by = "DxI9000", all = TRUE)
     sum.dat[is.na(sum.dat)] <- 0
+    
+    # Define  color function for dates
+date_color <- function(date) {
+  days_until_expiry <- as.numeric(date - Sys.Date())
+  color <- scales::col_numeric(palette = c("yellow", "green"), domain = c(0, max(days_until_expiry)))(days_until_expiry)
+  return(color)
+}
+
+date_color <- function(date) {
+  days_until_expiry <- as.numeric(date - Sys.Date())
+  
+  color <- ifelse(
+    days_until_expiry < 0, 
+    "red",
+    ifelse(
+      days_until_expiry <= 15, 
+      scales::col_numeric(palette = c("yellow", "white"), domain = c(0, 15))(days_until_expiry),
+      scales::col_numeric(palette = c("white", "green"), domain = c(16, max(days_until_expiry)))(days_until_expiry)
+    )
+  )
+  return(color)
+}
     sum.dat |> 
       flextable() |>  
         theme_vanilla() |>  
         bg(bg = "grey", part = "header") |> 
         align(align = "center", part = "all") |> 
-        bg(j = 4, bg = scales::col_numeric(palette = c("red", "green"), domain = c(0, 150))) |> 
+        bg(j = 10, bg = scales::col_numeric(palette = c("red", "yellow", "green"), domain = c(0, 75))) |>
+        bg(j = 11, bg = sapply(sum.dat$Verfallsdatum, date_color)) |>
         set_table_properties(width = 0.6, layout = "autofit")
        
 ```
@@ -117,11 +221,13 @@ cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
 
 ```
 
-<div class="title">
-  <h1> </h1>
-  <img src="www/logo_pos.png" alt="Logo" style="height: 30px;">
-</div>
+::: title
+<h1>
 
+</h1>
+
+<img src="www/logo_pos.png" alt="Logo" style="height: 30px;"/>
+:::
 
 ```{r, rendering, echo=FALSE, message=FALSE, warning=FALSE}
  # Define the output filename based on the current date
