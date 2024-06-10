@@ -29,10 +29,39 @@ setwd("/home/olli/R_local/autoVal")
 # }
 # read DXI data
 # val.dat <- read_excel("C:/R_local/autoVal/240521_DXIrawdata.xlsx")
- dir.rawdata <- "/home/olli/R_local/autoVal/2_Rohdaten/"
+if (Sys.info()["sysname"] == "Linux") {
+  dir.rawdata <- "/home/olli/R_local/autoVal/2_Rohdaten/"
+} else if (file.exists("I:\\Institut-Haus 04\\")) {
+  dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\"
+} else { # Windows
+  dir.rawdata <- "C:/R_local/autoVal/2_Rohdaten/"}
  
+
  # List all raw data CSV files
  csv.files <- list.files(path = dir.rawdata, pattern = "*.csv", full.names = TRUE)
+ 
+ # # to read csv files in batch:
+ # 
+ # all.data <- list()
+ # #loop through all files
+ # for (i in 1:length(csv.files)) {
+ #   val.dat <- read_csv(csv.files[i])
+ #   val.dat <- val.dat |>
+ #     rename(
+ #       PackRevision = `PackRevision...77`,
+ #       PackRevision2 = `PackRevision...89`
+ #     )
+ #   
+ #   setDT(val.dat)
+ #   
+ #   
+ #   val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
+ #  #  val.dat$DoseResult <- as.numeric(val.dat$DoseResult)
+ #   
+ #   all.data[[i]] <- val.dat
+ # }
+ # val.dat <- rbindlist(all.data, use.names = TRUE, fill = TRUE)
+ # val.dat.order <- names(val.dat)
  
  # Check if there are any raw data files
  if (length(csv.files) > 0) {
@@ -56,6 +85,7 @@ setwd("/home/olli/R_local/autoVal")
   #  val.dat$DoseResult <- as.numeric(val.dat$DoseResult)
    val.dat.order <- names(val.dat)
  }
+ 
 ```
 
 ```{r}
@@ -218,7 +248,7 @@ create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS DxIvalData (",
                                 ")") 
 
 # connect to SQLite DB
-con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+# con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
 
 # create the table in the SQLite DB
 # dbExecute(con, create.table.statement)
