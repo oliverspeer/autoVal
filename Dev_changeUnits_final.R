@@ -29,13 +29,16 @@
    
    
    val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
-   val.dat$DoseResult <- as.numeric(val.dat$DoseResult)
+  #  val.dat$DoseResult <- as.numeric(val.dat$DoseResult)
  }
  
  
- 
+ # load mol masses table-----------------------------------------------------------------------------------------------------
+ df.mol.mass <- read_excel("C:/R_local/autoVal/Dev_changeUnitsDxI9000.xlsx") # Dev_changeUnitsDxI9000.xlsx written manually
+ save(df.mol.mass, file = "mol_mass.RData")
  load("mol_mass.RData")
- # Example sum.dat for demonstration
+ 
+ 
  sum.dat <- setDT(df.mol.mass)
  sum.dat$molar_mass <- as.numeric(sum.dat$`molar_mass(g/mol)`)
  
@@ -167,6 +170,17 @@
                      ) %>%
                    ungroup()
                # View the updated results
-                 print(merged.dat$Result)
-                 print(merged.dat$DoseResult)
-                 
+                 # print(merged.dat$Result)
+                 # print(merged.dat$DoseResult)
+
+val.dat$DoseResult.c <- merged.dat$Result                 
+val.dat$DoseUnit.c <- merged.dat$Einheit_800
+
+# print(val.dat$DoseResult.c)
+# print(val.dat$DoseResult)
+# print(val.dat$DoseUnit.c)
+# print(val.dat$DoseUnit)
+
+
+
+  
