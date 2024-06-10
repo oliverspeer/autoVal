@@ -57,7 +57,9 @@ method <- params$method
     # omit rows with NA values
     validation.data <- na.omit(validation.data)
     
-    
+```
+
+```{r PBregprep, echo=FALSE, message=FALSE, warning=FALSE}
     
   
 # this  needs further improvement, inadequate source!-------------------------------------
@@ -71,11 +73,27 @@ val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
   
 method.x <- as.numeric(validation.data[[1]])
 method.y <- as.numeric(validation.data[[2]])
+
+```
+
+```{r PBreg, echo=FALSE, message=FALSE, warning=FALSE}
+
 ## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
 set.seed(8173)
-PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
-PB.reg@mnames[1] <- colnames(validation.data)[1]
-PB.reg@mnames[2] <- colnames(validation.data)[2]
+#tryCatch({
+  PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+  PB.reg@mnames[1] <- colnames(validation.data)[1]
+  PB.reg@mnames[2] <- colnames(validation.data)[2]
+# }, error = function(e) {
+#   print(e)
+#   cat("Nicht genug Daten verfügbar für die Passing-Bablock-Regressionsanalyse")
+#   stop()
+# })
+
+
+# PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+# PB.reg@mnames[1] <- colnames(validation.data)[1]
+# PB.reg@mnames[2] <- colnames(validation.data)[2]
 
 ```
 
@@ -183,13 +201,13 @@ prc.table.fun <- function(prc.L.data, prc.H.data){
     # building the CLSIEP15 table
     L.long <- data.frame(
       rep = rep(1:5, each = 5),
-      name = prc.L.data$SampleID[1:25],
+      name = paste(prc.L.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
       value = prc.L.data$DoseResult[1:25]
     )
     
     H.long <- data.frame(
       rep = rep(1:5, each = 5),
-      name = prc.H.data$SampleID[1:25],
+      name = paste(prc.H.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
       value = prc.H.data$DoseResult[1:25]
     )
     
