@@ -202,7 +202,6 @@ for (i in 1:n){
 
 ```
 
-
 ```{r}
            # Merge data tables
 val.dat <- merge(val.dat, merged.dat[, c("TestCompleteDT", "SampleID", "DoseResult_c", "Einheit_800")], by = c('TestCompleteDT', "SampleID"),  all.x = TRUE)
