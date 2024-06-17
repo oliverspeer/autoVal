@@ -36,6 +36,7 @@ setwd("C:/R_local/autoVal")
 
 # read DXI data
 val.dat <- read_excel("240307rawdata.xlsx")
+val.dat <- read_excel("DxI_CODES.xlsx")
 setDT(val.dat)
 
 # extract $ TestOrderCode and $ TestName into a new data.table
