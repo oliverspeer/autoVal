@@ -27,6 +27,9 @@ query.bez <- "SELECT DISTINCT a. Methode, a.Bezeichnung
 (query.bez.result <- dbGetQuery(con, query.bez))
 fwrite(query.bez.result, "C:/R_local/autoVal/query_bez_DxI_result.csv")
 
+query.testName <- "SELECT DISTINCT TestOrderCode, TestName
+                    FROM DxIvalData;"
+query.testName.result <- dbGetQuery(con, query.testName)
 
 # read DXI9000 validation data
 setwd("C:/R_local/autoVal")
