@@ -1,0 +1,54 @@
+Methode;Bezeichnung;TestName;TestOrderCode
+14097;a-Fetoprotein;AFP;1180
+33969;Anti-Müller-Hormon;AMH;293
+30003;ß-hCG;BhCG;1273
+30003;ß-hCG (hCG5);BhCG;1273
+14102;CA 15-3;BR15-3Ag;193
+14100;CEA;CEA;1240
+14574;CK-MB Masse;CK-MB;163
+15351;CK-MB Masse (Serum);CK-MB_S;163
+13939;Cortisol;Cortisol;119
+18408;Cortisol nach 60;Cortisol_60;119
+38765;Cortisol rapid;Cortisol_IO;119
+15357;DHEA-S;DHEA-S;235
+14813;Erythropoietin;EPO;209
+10054;Estradiol;Estradiol_P;292
+37989;Estradiol;Estradiol;292
+37274;Ferritin;Ferritin;1125
+22174;Folsäure (Serum);FOLW;156
+35779;T3 frei;Free T3;212
+35779;T3 frei (DxI);Free T3;212
+13956;T4 frei;Free T4;226
+13956;T4 frei (DxI);Free T4;226
+14098;PSA frei;freePSA;1169
+13941;FSH;hFSH;115
+13940;LH;hLH;116
+36716;hs Troponin I (DxI);hsTnI_P;299
+37266;hs Troponin I (DxI, Se);hsTnI;299
+13922;Insulin;Insulin;182
+14453;Myoglobin quant.;Myoglobin;162
+22144;BNP;NT-proBNP;1200
+11996;Progesteron;NULL;NULL
+14101;CA 19-9;NULL;NULL
+21504;Digoxin;NULL;NULL
+22144;BNP ;NULL;NULL
+38650;active B12 (holo-TC);NULL;NULL
+38650;holo-TC;NULL;NULL
+14103;CA 125;OV125Ag;175
+43017;Procalcitonin quant. (PCT);PCT;1280
+13942;Prolactin;Prolactin;128
+13942;Prolactin (PRL);Prolactin;128
+14021;Prolactin nach PEG;Prolactin_PEG;128
+14099;PSA;PSA-Hyb;1170
+17763;PTH intact;PTH;214
+22117;PTH rapid;PTHIO;215
+32505;SHBG;SHBG;255
+31140;lösl. Transf.-Rezeptor;sTfR;245
+13924;Testosteron total;Testo;195
+31856;Thyreoglobulin (Tg2);Thyg;178
+33548;TSH;TSH;1277
+33548;TSH (3.IS);TSH;1277
+14006;Vitamin B12;VitB12;190
+30372;25-OH-Vitamin D Total;VitD 25OH;1271
+30372;OH25Vitamin D Total;VitD 25OH;1271
+43167;25-OH-Vitamin D T. NP;VitD 25OH_NP;1271
