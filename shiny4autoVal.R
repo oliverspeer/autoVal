@@ -140,10 +140,14 @@ server <- function(input, output, session) {
     # Define the output filename based on the current date
     output.filename <- paste(format(Sys.time(), "%Y-%m-%d_%H-%M-%S"), input$method, "Validation.docx", sep = "_")
     
+    
+    param <- list(method = selectedMethod())
+    print(param)
+    
     rmarkdown::render("DxI_autoValOffcDwnWrd.Rmd", 
                       output_file = output.filename,
                       output_format = "all",
-                      params = list(method = selectedMethod())
+                      params = param
                       )
   })
   
