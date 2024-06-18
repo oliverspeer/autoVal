@@ -300,6 +300,7 @@ dbWriteTable(con, "TranslationData", BCI_INLAB, append = TRUE, row.names = FALSE
 
 # for deletion of a table
 # dbExecute(con, "DROP TABLE IF EXISTS TranslationData")
+# dbExecute(con, "DELETE FROM TranslationData")
 
 dbDisconnect(con)
 ```
