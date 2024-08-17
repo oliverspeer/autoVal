@@ -16,7 +16,7 @@ sum.dat$molar_mass <- as.numeric(sum.dat$`molar_mass(g/mol)`)
 
 # read Raw Data------------------------------------------------------
 # Define the raw data directory 
-dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geräte\\DxI9000\\Validation\\2_Rohdaten\\"
+dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\"
 
 # List all raw data CSV files
 csv.files <- list.files(path = dir.rawdata, pattern = "*.csv", full.names = TRUE)
