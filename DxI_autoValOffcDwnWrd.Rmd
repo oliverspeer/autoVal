@@ -226,14 +226,14 @@ prc.table.fun <- function(prc.L.data, prc.H.data){
         paste(val.prec$Ziel_intra1[1]),
         paste(round(prc.data.L$mean, 2) ),
         paste(round(prc.data.L$sd, 2) ),
-        paste(round(prc.data.L$CVWL, 2))
+        paste(round(prc.data.L$CVR, 2) )
       ),
       H = c(
         paste(prc.data.H$N),
         paste(val.prec$Ziel_intra2[1]),
         paste(round(prc.data.H$mean, 2) ),
-        paste(round(prc.data.H$sd, 2)),
-        paste(round(prc.data.H$CVWL, 2))
+        paste(round(prc.data.H$sd, 2) ),
+        paste(round(prc.data.H$CVR, 2) )
       )
     )
     
@@ -242,16 +242,16 @@ prc.table.fun <- function(prc.L.data, prc.H.data){
       L = c(
         paste(prc.data.L$n),
         paste(val.prec$Ziel_inter1[1]),
-        paste(round(prc.data.L$mean, 2)),
-        paste(round(prc.data.L$sd, 2)),
-        paste(round(prc.data.L$CVR), 2)
+        paste(round(prc.data.L$mean, 2) ),
+        paste(round(prc.data.L$sd, 2) ),
+        paste(round(prc.data.L$CVWL, 2) )
       ),
       H = c(
         paste(prc.data.H$n),
         paste(val.prec$Ziel_inter2[1]),
-        paste(round(prc.data.H$mean), 2),
-        paste(round(prc.data.H$sd), 2),
-        paste(round(prc.data.H$CVR), 2)
+        paste(round(prc.data.H$mean, 2) ),
+        paste(round(prc.data.H$sd, 2) ),
+        paste(round(prc.data.H$CVWL, 2) )
       )
     )
     
