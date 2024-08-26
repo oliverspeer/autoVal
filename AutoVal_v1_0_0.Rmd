@@ -1,0 +1,365 @@
+# AutoVal.rmd 
+# version: 1.0.0
+# author: Oliver Speer
+# in use: 2021-08-20 to present
+
+---
+output: 
+  officedown::rdocx_document:
+    reference_docx: "Formatvorlage_autoValWORD.docx"
+    plots:
+      style: Normal
+      align: center
+      caption:
+       style: Image Caption
+       pre: 'Figure '
+       sep: ': '
+---
+
+```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
+if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
+  install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
+}
+library(knitr)
+library(tidyverse)
+library(parallel)
+library(robslopes)
+library(readxl)
+library(officedown)
+library(officer)
+library(mcr)
+library(flextable)
+
+library(rstudioapi)
+library(CLSIEP15)
+
+set_flextable_defaults(font.size = 11, padding = 3)
+use_df_printer()
+opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
+
+# set working directory ----------------------------------------------------
+
+# Use rstudioapi to get the path of the current project
+project_directory <- rstudioapi::getActiveProject()
+
+# if running in an RStudio project, set the working directory to the project directory
+# If not running in an RStudio project, print a message
+if (!is.null(project_directory)) {
+  setwd(project_directory)
+} else {
+  print("This R session is not running within an RStudio Project.")
+}
+
+```
+
+<!-- Prepare libraries and import data from Excel -->
+
+<!-- create vectors method.x and method.y, run Passing Bablok regression -->
+
+<!-- change column names in PB.reg@mnames to prepare for dynamic title-, axis- & legend labels-->
+
+```{r Datentabelle, echo=FALSE, message = FALSE}
+library(readxl)
+## Import Data from a xlsx file, create the vectors for reference x and test y
+validation.data <- read_excel("vdata.xlsx", sheet = "DATA", col_types = "numeric")
+val.crit <- read_excel("vdata.xlsx", sheet = "CRIT")
+val.info <- read_excel("vdata.xlsx", sheet = "INFO")
+val.prec <- read_excel("vdata.xlsx", sheet = "PREC")
+val.prec.L1 <- read_excel("vdata.xlsx", range = "PREC25!A1:F6")
+val.prec.L2 <- read_excel("vdata.xlsx", range = "PREC25!A8:F13")
+
+method.x <- validation.data[[1]]
+method.y <- validation.data[[2]]
+## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
+set.seed(8173)
+PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+PB.reg@mnames[1] <- colnames(validation.data)[1]
+PB.reg@mnames[2] <- colnames(validation.data)[2]
+
+```
+
+---
+title: "`r paste(val.info$x[1])`"  
+---  
+  
+# Einleitung 
+
+
+```{r cover_table, echo = FALSE, message = FALSE}
+
+val.info |>  flextable() |> 
+  bold(i = c(1, 11, 15, 17)) |> 
+  theme_vanilla() |>   
+  bg(bg = "darkgrey", i = 1) |> 
+  bg(bg = "lightgrey", i = c(11, 15, 17)) |> 
+  set_table_properties(width = 0.8, layout = "autofit") |> 
+  colformat_date(fmt_date = "%d/%m/%Y")
+
+```
+
+
+\newpage
+# ZUSAMMENFASSUNG DER MESSERGEBNISSE UND DATENAUSWERTUNG
+## Messdaten, Mittelwerte und Differenzen 
+  
+```{r data_table, echo = FALSE, warning = FALSE, message = FALSE}
+table.one <- data.frame(seq.int(nrow(validation.data)),validation.data)
+colnames(table.one)[1] = "# "
+
+# table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
+table.one$"delta.%" <- (round((100-table.one[[2]]*100/table.one[[3]]), digits = 1))
+
+table.one |> 
+  flextable() |>  
+  theme_vanilla() |>  
+  bg(bg = "grey", part = "header") |> 
+  align(align = "center", part = "all") |> 
+  bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
+  set_table_properties(width = 0.5, layout = "autofit")
+```
+
+\newpage
+
+## Präzisionsdaten
+
+```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE}
+library(tidyverse)
+library(flextable)
+
+prc.data.L <- calculate_aov_infos( create_table_ep_15(val.prec.L1) )
+prc.data.L$CVWL <- round(prc.data.L$CVWL, digits = 2)
+prc.data.L$CVR <- round(prc.data.L$CVR, digits = 2)
+prc.data.H <- calculate_aov_infos( create_table_ep_15(val.prec.L2) )
+prc.data.H$CVWL <- round(prc.data.H$CVWL, digits = 2)
+prc.data.H$CVR <- round(prc.data.H$CVR, digits = 2)
+
+cv <- function(x) {
+  sd(x) * 100 / mean(x)
+}
+
+prec.data <-
+  val.prec |> select(Messwert_intra1,
+                     Messwert_intra2,
+                     Messwert_inter1,
+                     Messwert_inter2)
+
+prec.data.stat <-
+  prec.data |> summarize(n = n(), across(
+    Messwert_intra1:Messwert_inter2,
+    list(
+      Mittelwert = \(x) round(mean(x, na.rm = TRUE), digits = 2),
+      StabW = \(x) round(sd(x, na.rm = TRUE), digits = 2),
+      VK = \(x) round(cv(x), digits = 1)
+    )
+  ),)
+
+
+
+intra.df <- data.frame(
+  "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)", "CLSIVK"),
+  L = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_intra1[1]),
+    paste(prec.data.stat$Messwert_intra1_Mittelwert),
+    paste(prec.data.stat$Messwert_intra1_StabW),
+    paste(prec.data.stat$Messwert_intra1_VK),
+    paste(prc.data.L$CVR)
+  ),
+  H = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_intra2[1]),
+    paste(prec.data.stat$Messwert_intra2_Mittelwert),
+    paste(prec.data.stat$Messwert_intra2_StabW),
+    paste(prec.data.stat$Messwert_intra2_VK),
+    paste(prc.data.H$CVR)
+  )
+)
+
+inter.df <- data.frame(
+  "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)", "CLSIVK"),
+  L = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter1[1]),
+    paste(prec.data.stat$Messwert_inter1_Mittelwert),
+    paste(prec.data.stat$Messwert_inter1_StabW),
+    paste(prec.data.stat$Messwert_inter1_VK),
+    paste(prc.data.L$CVWL)
+  ),
+  H = c(
+    paste(prec.data.stat$n),
+    paste(val.prec$Ziel_inter2[1]),
+    paste(prec.data.stat$Messwert_inter2_Mittelwert),
+    paste(prec.data.stat$Messwert_inter2_StabW),
+    paste(prec.data.stat$Messwert_inter2_VK),
+    paste(prc.data.H$CVWL)
+  )
+)
+
+
+```
+
+
+```{r intra_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+intra.df.ft <- flextable(intra.df)
+intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
+intra.df.ft <- autofit(intra.df.ft)
+intra.df.ft <- add_footer_lines(intra.df.ft, "")
+intra.df.ft |> bg(bg = "grey", part = "header")
+
+```
+  
+
+```{r inter_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+inter.df.ft <- flextable(inter.df)
+inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
+inter.df.ft <- autofit(inter.df.ft)
+inter.df.ft |> bg(bg = "grey", part = "header")
+
+```
+
+```{r CLSI15, echo = FALSE, message = FALSE, warning = FALSE}
+# prc.data.L <- calculate_aov_infos( create_table_ep_15(val.prec.L1) )
+# prc.data.H <- calculate_aov_infos( create_table_ep_15(val.prec.L2) )
+
+```
+
+
+## Korrelation
+
+<!-- Pearsson correlation and plot, sample number n from PB.reg@data -->
+
+```{r correlation, echo=FALSE, out.height = "80%", out.width = "80%"}
+
+## Correlation plot with Pearsson correlation
+## Creating the plot
+plot(method.x, method.y, pch = 19, col = "#68228B", 
+     xlab=colnames(validation.data)[1], ylab=colnames(validation.data)[2])
+
+## Regression line
+abline(lm(method.y ~ method.x), col = "red", lwd = 3)
+
+## Pearson correlation
+# text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=max(method.x)*0.85, y=max(method.y)*0.5)
+#text(paste("n=", nrow(PB.reg@data)), x=max(method.x)*0.85, y=max(method.y)*0.4)
+text.block <-  paste("Pearson's r:", round(cor(method.x, method.y), 2), "\nn=", nrow(PB.reg@data)) 
+mtext(text.block, side = 1, line = 3, cex = 1, col = "red", adj = 0)
+
+# paste("n=", nrow(PB.reg@data))
+
+
+
+```
+
+
+\newpage
+## Passing Bablok
+
+<!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
+
+```{r PB, echo=FALSE, out.height = "80%", out.width = "80%", warning = FALSE}
+
+MCResult.plot(PB.reg, equal.axis = TRUE, x.lab = "", y.lab = colnames(validation.data)[2], points.col = "#68228B", points.pch = 19, ci.area = TRUE, ci.area.col = "#0000FF50", main = paste("Validation", colnames(validation.data)[2], "vs", colnames(validation.data)[1]), sub = "", add.cor = TRUE, cor.method = "spearman", add.grid = FALSE, points.cex = 1)
+##Angabe Steigung und Achsenabschnitt und CI
+intercept_est <- PB.reg@para[1]
+intercept_lci <- PB.reg@para[5]
+intercept_uci <- PB.reg@para[7]
+gradient_est <- PB.reg@para[2]
+gradient_lci <- PB.reg@para[6]
+gradient_uci <- PB.reg@para[8]
+alpha_ci <- PB.reg@alpha[1]
+
+# Add the x-axis label manually with mtext, aligned to the left
+mtext(
+  colnames(validation.data)[1],
+  side = 1, line = 2, cex = 1, adj = 0
+)
+
+# Adding text below the plot using mtext
+mtext(
+  sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci),
+  side = 1, line = 2, cex = 0.75, adj = 1
+)
+mtext(
+  sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci),
+  side = 1, line = 3, cex = 0.75, adj = 1
+)
+mtext(
+  sprintf("alpha : %4.2f", alpha_ci),
+  side = 1, line = 4, cex = 0.75, adj = 1
+)
+
+# text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+# text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+# text(cex=.65,x=max(validation.data)*0.8,y=max(validation.data)*0.35, sprintf("alpha : %4.2f", alpha_ci))
+
+```
+
+```{r coef_plot, echo = FALSE, warning = FALSE, message = FALSE}
+fitPaBa <- mcreg(as.matrix(validation.data), method.reg="PaBa", na.rm=TRUE)
+fitlr <- mcreg(as.matrix(validation.data), method.reg="LinReg", na.rm=TRUE)
+compareFit(fitlr, fitPaBa)
+```
+
+\newpage
+
+## Bland-Altman
+
+```{r BA, echo=FALSE, out.height = "80%", out.width = "80%"}
+MCResult.plotDifference(PB.reg)
+```
+
+```{r BArel, echo=FALSE, out.height = "80%", out.width = "80%"}
+
+MCResult.plotDifference(PB.reg, plot.type = 8, main = "rel Difference plot")
+```
+
+```{r Bias, echo=FALSE, out.height = "90%", out.width = "90%"}
+## Calculation of models
+m2 <- mcreg(method.x,method.y,method.reg="PaBa", method.ci="bootstrap",
+            method.bootstrap.ci="BCa",mref.name=colnames(validation.data)[1],
+            mtest.name=colnames(validation.data)[2], na.rm=TRUE)
+## Drawing of proportional bias
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, cex.sub=0.2)
+
+```
+
+```{r Bias_prop, echo=FALSE, out.height = "90%", out.width = "90%"}
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
+```
+
+\newpage
+
+# Schlussfolgerung und Freigabe
+
+
+
+<!-- User Input zur Beurteilung und Freigabe -->
+
+
+
+```{r Schlussfolgerung, echo = FALSE}
+block_pour_docx("blocks_Akzeptanzkriterien.docx")
+```
+---
+
+**Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
+
+\newpage
+
+--- 
+
+#### Data is processed using R language^1^, mcr package^2^ and flextable package^3^. Rmarkdown^4^, Officedown^5^ and Officer^6^ are used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^7^, Burak Bahar (Washington, USA)^8^ and David Gohel (Roubaix, F)^9^.
+  
+#### References and packages:
+  
+1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
+2.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
+3.  flextable: a framework for easily creating tables. Version: `r packageDescription("flextable")$Version` URL: <http://CRAN.R-project.org/package=flextable>
+4.  rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: <http://rmarkdown.rstudio.com>
+5.  officedown: Formatting Microsoft documents produced by RMarkdown. R Version: `r packageDescription("officedown")$Version` URL: <http://CRAN.R-project.org/package=officedown>
+6.  officer: Manipulation of Microsoft Word and PowerPoint Documents. R Version: `r packageDescription("officer")$Version` URL: <http://CRAN.R-project.org/package=officer>
+7.  The Lab-R-torian: URL: <https://labrtorian.com/>
+8.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+9.  SOLUTIONS ET FORMATIONS EN DATA-SCIENCE: URL: <https://www.ardata.fr/>
+
+---
