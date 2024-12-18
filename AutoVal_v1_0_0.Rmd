@@ -1,7 +1,4 @@
-# AutoVal.rmd 
-# version: 1.0.0
-# author: Oliver Speer
-# in use: 2021-08-20 to present
+
 
 ---
 output: 
@@ -17,6 +14,12 @@ output:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
+
+# AutoVal.rmd 
+# version: 1.0.0
+# author: Oliver Speer
+# in use: 2021-08-20 to present
+
 if (!requireNamespace(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"), quietly = TRUE)) {
   install.packages(c("knitr", "tidyverse", "parallel", "robslopes", "readxl", "officedown", "officer", "mcr", "flextable",  "rstudioapi"))
 }
