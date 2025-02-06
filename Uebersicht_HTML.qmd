@@ -80,17 +80,42 @@ n.double.query <- "
     subquery.TestName AS DxI9000,
     -- subquery.Methode,
     -- subquery.TestOrderCode,
-    COUNT(*) AS n_Doppel,
-    subquery.TestCompleteDT AS letzteMessung
+    COUNT(*) AS n_Doppel --,
+    -- MAX(subquery.TestCompleteDT) AS letzteMessung
   FROM (
-    SELECT DISTINCT
-      a.Werte AS DxI800,
-      d.DoseResult_c AS DxI9000,
-      a.Bezeichnung,
-      a.Methode,
-      m.EINHEIT AS Einheit_800,
-      d.DoseUnit AS Einheit_9000,
-      d.Probennummer,
+    SELECT -- DISTINCT
+      -- a.Werte AS DxI800,
+      -- d.DoseResult_c AS DxI9000,
+      -- a.Bezeichnung,
+      -- a.Methode,
+      -- m.EINHEIT AS Einheit_800,
+      -- d.DoseUnit AS Einheit_9000,
+      -- d.Probennummer,
+      d.TestName --,
+      -- d.TestCompleteDT
+    FROM MeasurementData a
+    JOIN MethodData m ON a.Methode = m.Methode
+    JOIN TranslationData t ON a.Methode = t.Methode
+    JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+    WHERE a.Probennummer = d.Probennummer 
+      AND d.DoseResult <> 'No result'
+  ) AS subquery
+   GROUP BY subquery.TestName;
+        -- subquery.TestOrderCode, 
+        -- subquery.Methode;
+"
+
+n.double.dat <- dbGetQuery(con, n.double.query)
+
+  
+date.query <- "
+  SELECT 
+    subquery.TestName AS DxI9000,
+    MAX(date(substr(subquery.TestCompleteDT, 7, 4) || '-' || 
+                 substr(subquery.TestCompleteDT, 1, 2) || '-' || 
+                 substr(subquery.TestCompleteDT, 4, 2))) AS letzteMessung
+  FROM (
+    SELECT 
       d.TestName,
       d.TestCompleteDT
     FROM MeasurementData a
@@ -100,15 +125,11 @@ n.double.query <- "
     WHERE a.Probennummer = d.Probennummer 
       AND d.DoseResult <> 'No result'
   ) AS subquery
-  GROUP BY subquery.TestName, 
-        -- subquery.TestOrderCode, 
-           subquery.Methode;
+   GROUP BY subquery.TestName;
 "
 
-n.double.dat <- dbGetQuery(con, n.double.query)
-n.double.dat$letzteMessung <- as.Date(n.double.dat$letzteMessung, format = "%m-%d-%Y")
-  
-
+last.date <- dbGetQuery(con, date.query)
+last.date$letzteMessung <- as.Date(last.date$letzteMessung, format = "%Y-%m-%d")
 
 # enable and register the REGEXP function in the SQLite connection
 initExtension(con, extension = "regexp")
@@ -183,7 +204,12 @@ colnames(prc.dat) <- c("n_L1", "n_L2", "n_L3", "DxI9000")
 
     sum.dat <- merge(n.single.dat, prc.dat, by = "DxI9000", all = TRUE)
     sum.dat <- merge(sum.dat, n.double.dat, by = "DxI9000", all = TRUE)
-    sum.dat[is.na(sum.dat)] <- 0
+    sum.dat <- merge(sum.dat, last.date, by = "DxI9000", all = TRUE)
+    sum.dat[ , !names(sum.dat) %in% "letzteMessung"] <- lapply(
+      sum.dat[ , !names(sum.dat) %in% "letzteMessung"], 
+      function(x) {
+      ifelse(is.na(x), 0, x)
+                   })
     
     # Define  color function for dates
 date_color <- function(date) {
@@ -211,7 +237,7 @@ date_color <- function(date) {
         theme_vanilla() |>  
         bg(bg = "grey", part = "header") |> 
         align(align = "center", part = "all") |> 
-        bg(j = 10, bg = scales::col_numeric(palette = c("red", "orange", "yellow", "yellowgreen", "green"), domain = c(0, 100))) |>
+        bg(j = 10, bg = scales::col_numeric(palette = c("red", "green", "green", "green", "green"), domain = c(0, 10, 10, 20, 200))) |>
         #bg(j = 11, bg = sapply(sum.dat$letzteMessung, date_color)) |>
         set_table_properties(width = 0.6, layout = "autofit")
        
