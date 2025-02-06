@@ -14,7 +14,7 @@ params:
 ---
 
 ```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
-
+# v1.0 2025-01-17 for DxI9000 data format from 07/2024
 
  source("StartUp.R")
  StartUpRoutine()
@@ -153,15 +153,15 @@ name <- dbGetQuery(con, nameQuery)[1, 1]
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
+query.L <- sprintf("SELECT TestName, TestCompleteDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
                   FROM DxIvalData
                   WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
                     AND DoseUnit IS NOT NULL
                   GROUP BY
-                    TestStartDT;", name)
+                    TestCompleteDT;", name)
 
-query.H <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
+query.H <- sprintf("SELECT TestName, TestCompleteDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
                   FROM DxIvalData
                   WHERE TestName = '%s' 
                     AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
@@ -175,11 +175,11 @@ prc.H.data <- dbGetQuery(con, query.H)
 prc.data.fun <- function(prc.L.data, prc.H.data){
 
   #transform prc.L.data
-  prc.L.data <-  prc.L.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  prc.L.data <-  prc.L.data |>  group_by(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
   
 
   #transform prc.H.data
-  prc.H.data <-  prc.H.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  prc.H.data <-  prc.H.data |>  group_by(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
   
   # check the row numbers
   if(nrow(prc.L.data) >= 25 | nrow(prc.H.data) >= 25){
@@ -289,7 +289,7 @@ if(!is.null(ft$inter)){
 
 
 
-```{r intra_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+```{r intra_assay_table, echo = FALSE, eval=FALSE, message = FALSE, warning = FALSE}
 # intra.df.ft <- flextable(intra.df)
 # intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
 # intra.df.ft <- autofit(intra.df.ft)
@@ -299,7 +299,7 @@ if(!is.null(ft$inter)){
 ```
   
 
-```{r inter_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+```{r inter_assay_table, echo = FALSE, eval=FALSE, message = FALSE, warning = FALSE}
 # inter.df.ft <- flextable(inter.df)
 # inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
 # inter.df.ft <- autofit(inter.df.ft)
