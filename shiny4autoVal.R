@@ -19,8 +19,12 @@ ui <- fluidPage(
              # fluidRow(
              #   column(3, DTOutput("nSamples"))
              #   ),
-             actionButton("generate.report", "Erstelle Validationsbericht")
-    )
+             actionButton("generate.report", "Erstelle Validationsbericht"),
+             br(),
+             hr(),
+             h6("Datenbankverbindung:"),
+             verbatimTextOutput("connection")
+            )
   )
 )
 
@@ -149,6 +153,13 @@ server <- function(input, output, session) {
                       output_format = "all",
                       params = param
                       )
+  })
+  
+  # show database info
+  output$connection <- renderText({
+    db_path <- dbGetInfo(con)$dbname
+    paste("Verbunden mit SQLite-Datenbank:", db_path, "\n", sessionInfo()$otherPkgs$RSQLite$Package, 
+          sessionInfo()$otherPkgs$RSQLite$Version, "\n")
   })
   
   # Disconnect from the database
