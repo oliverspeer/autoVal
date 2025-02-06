@@ -29,8 +29,9 @@ StartUpRoutine <- function() {
                 "quarto",
                 "readr",
                 "fs",
-                "units",
-                "scales"
+                "openxlsx2",
+                "nephro",
+                "units"
                 )
   
   # Loop to check if libraries are installed and install them if not and load them
@@ -50,16 +51,12 @@ StartUpRoutine <- function() {
     if (os == "Linux") {
       # Path for Linux (Ubuntu)
       # path <- "/home/olli/R_local/labStat/ClinicalChemistry_1.db"
-      assign("path", "/home/olli/R_local/autoVal/ClinicalChemistry_2.db", envir = .GlobalEnv)
+      assign("path", "/home/olli/R_local/labStat/ClinicalChemistry_2.db", envir = .GlobalEnv)
     } else if (os == "Windows") {
-      if (file.exists("H:\\R\\")) {
       # Path for Windows
       # Adjust the path as necessary for your Windows setup
       # path <- "C:/R_local/labStat/ClinicalChemistry_1.db"
-      assign("path", "H:/R/autoVal_H/ClinicalChemistry_2.db", envir = .GlobalEnv)
-    } else {
-      assign("path", "C:/R_local/labStat/ClinicalChemistry_2.db", envir = .GlobalEnv)
-          }
+      assign("path", "H:\\R\\autoVal_H\\ClinicalChemistry_2.db", envir = .GlobalEnv)
     } else {
       stop("Operating system not supported")
     }
