@@ -1,14 +1,22 @@
+setwd("H:/R/autoVal_H")
+
+source("StartUp.R")
+StartUpRoutine()
+
 # define functions --------------------------------------------------------
 # function to read multiple files ---------------------
 fun.read.multi.excel.data <- function(file.pattern, dt.name) {
   # project_directory <- rstudioapi::getActiveProject()
-  data.path <- getActiveProject()
+  data.path <- getwd()
   files <- list.files(data.path, pattern = file.pattern)
+  assign("files", files, envir = .GlobalEnv)
   all.data <- list()
   
   # Loop through all files
   for (file.name in files) {
     full.path <- file.path(data.path, file.name)
+    #load full.path into the global environment
+    assign("full.path", full.path, envir = .GlobalEnv)
     
     # Read the header
     head <- read_xlsx(full.path, rows = 1:2, colNames = FALSE)
@@ -139,6 +147,68 @@ DT.tidy.dxi <- fun.write.tidy.data(dxi.data,
 dbWriteTable(con, "MeasurementData", DT.tidy.dxi, append = TRUE, row.names = FALSE)
 
 # close the connection
+dbDisconnect(con)
+
+archive <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\SQLdb_importiert\\"
+files.name <- basename(files)
+file_move(files,  file.path(archive, files.name))
+
+
+# # Verbindung zur SQLite-Datenbank herstellen
+# con <- dbConnect(SQLite(), "H:/R/autoVal_H/ClinicalChemistry_2test.db")
+
+# Update via CTE-Join --------------------------------------
+# some of the external samples have a different Probennummer format than the internal samples
+# they come as Tagesnummer + material code
+# we need to update the Probennummer in the DxIvalData table to match the Probennummer in the MeasurementData table
+update_query <- "
+WITH mapping AS (
+    SELECT d.Probennummer as old_Probennummer,
+           m.Probennummer AS new_probennummer
+    FROM DxIvalData d
+    JOIN MeasurementData m 
+      ON m.Tagesnummer = substr(d.Probennummer, 1, 4) || '.' ||
+                          substr(d.Probennummer, 5, 2) || '.' ||
+                          substr(d.Probennummer, 7, 2) || '.' ||
+                          substr(d.Probennummer, 9, 4)
+    WHERE length(d.Probennummer) > 12
+    GROUP BY d.Probennummer
+)
+UPDATE DxIvalData
+SET Probennummer = (
+    SELECT new_probennummer
+    FROM mapping
+    WHERE mapping.old_probennummer = DxIvalData.Probennummer
+)
+WHERE Probennummer IN (SELECT old_probennummer FROM mapping);
+"
+
+# # Update via CTE-Join
+# update_query <- "
+# WITH mapping AS (
+#     SELECT d.rowid AS did,
+#            m.Probennummer AS new_probennummer
+#     FROM DxIvalData d
+#     JOIN MeasurementData m 
+#       ON m.Tagesnummer = substr(d.Probennummer, 1, 4) || '.' ||
+#                           substr(d.Probennummer, 5, 2) || '.' ||
+#                           substr(d.Probennummer, 7, 2) || '.' ||
+#                           substr(d.Probennummer, 9, 4)
+#     WHERE length(d.Probennummer) = 12
+# )
+# UPDATE DxIvalData
+# SET Probennummer = (
+#     SELECT new_probennummer
+#     FROM mapping
+#     WHERE mapping.did = DxIvalData.rowid
+# )
+# WHERE rowid IN (SELECT did FROM mapping);
+# "
+
+# Den Query ausführen
+dbExecute(con, update_query)
+
+# Verbindung wieder schließen
 dbDisconnect(con)
 
 
