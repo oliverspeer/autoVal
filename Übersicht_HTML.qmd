@@ -20,6 +20,8 @@ editor: visual
 ## Vergleich Anzahl Daten DxI9000 und DxI800
 
 ```{r, startup, echo=FALSE, message=FALSE, warning=FALSE}
+# changes 2025-01-17 CurveExpirationDT into TestCompleteDT as in new data structure fom BCI there is no CurveExpirationDT anymore
+# changes 2025-01-17 therefore also "Verfallsdatum" into "letzteMessung"
 source("StartUp.R")
 StartUpRoutine()
 ```
@@ -79,7 +81,7 @@ n.double.query <- "
     -- subquery.Methode,
     -- subquery.TestOrderCode,
     COUNT(*) AS n_Doppel,
-    subquery.CurveExpirationDT AS Verfallsdatum
+    subquery.TestCompleteDT AS letzteMessung
   FROM (
     SELECT DISTINCT
       a.Werte AS DxI800,
@@ -90,7 +92,7 @@ n.double.query <- "
       d.DoseUnit AS Einheit_9000,
       d.Probennummer,
       d.TestName,
-      d.CurveExpirationDT
+      d.TestCompleteDT
     FROM MeasurementData a
     JOIN MethodData m ON a.Methode = m.Methode
     JOIN TranslationData t ON a.Methode = t.Methode
@@ -104,7 +106,7 @@ n.double.query <- "
 "
 
 n.double.dat <- dbGetQuery(con, n.double.query)
-n.double.dat$Verfallsdatum <- as.Date(n.double.dat$Verfallsdatum, format = "%m-%d-%Y")
+n.double.dat$letzteMessung <- as.Date(n.double.dat$letzteMessung, format = "%m-%d-%Y")
   
 
 
@@ -209,14 +211,27 @@ date_color <- function(date) {
         theme_vanilla() |>  
         bg(bg = "grey", part = "header") |> 
         align(align = "center", part = "all") |> 
-        bg(j = 10, bg = scales::col_numeric(palette = c("red", "yellow", "green"), domain = c(0, 75))) |>
-        bg(j = 11, bg = sapply(sum.dat$Verfallsdatum, date_color)) |>
+        bg(j = 10, bg = scales::col_numeric(palette = c("red", "orange", "yellow", "yellowgreen", "green"), domain = c(0, 100))) |>
+        #bg(j = 11, bg = sapply(sum.dat$letzteMessung, date_color)) |>
         set_table_properties(width = 0.6, layout = "autofit")
        
 ```
 
 ```{r, sysDate, echo=FALSE, message=FALSE, warning=FALSE}
-cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
+# cat("letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"))
+# cat("\nDatenbank:", dbGetInfo(con)$dbname
+#     )
+
+cat("Letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"), "\n")
+cat("Datenbank:", dbGetInfo(con)$dbname, "\n")
+
+# Paketname und Version anzeigen
+db_pkg <- sessionInfo()$otherPkgs$RSQLite  # Für RSQLite
+if (!is.null(db_pkg)) {
+  cat("Datenbankpaket:", db_pkg$Package, "Version", db_pkg$Version, "\n")
+} else {
+  cat("Datenbankpaket nicht geladen oder nicht erkannt.\n")
+}
 
 
 ```
