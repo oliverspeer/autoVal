@@ -1,0 +1,429 @@
+---
+output: 
+  officedown::rdocx_document:
+    reference_docx: "Formatvorlage_autoValWORD.docx"
+    plots:
+      style: Normal
+      align: center
+      caption:
+       style: Image Caption
+       pre: 'Figure '
+       sep: ': '
+params:
+  method: "Default Method"       
+---
+
+```{r setup, echo=FALSE, message = FALSE, warning = FALSE}
+# for DxI9000 data file format until 06/2024 
+# for DxI9000 data files from 07/2024 use DxI_autoValOffcDwnWrd.Rmd 
+
+ source("StartUp.R")
+ StartUpRoutine()
+
+set_flextable_defaults(font.size = 11, padding = 3)
+use_df_printer()
+opts_chunk$set(echo = TRUE, ft.align = "center", fig.align = "center")
+
+method <- params$method
+
+```
+
+
+
+```{r Datentabelle, echo=FALSE, message = FALSE, warning = FALSE}
+
+# Import Data from a the SQLite database
+
+ query.dxi.val <- "SELECT DISTINCT
+                        a.Werte AS DxI800,
+                        d.DoseResult_c AS DxI9000,
+                        a.Bezeichnung,
+                        a.Methode,
+                        m.EINHEIT AS Einheit_800,
+                        d.DoseUnit AS Einheit_9000,
+                        d.Probennummer
+                      FROM MeasurementData a
+                        JOIN MethodData m ON a.Methode = m.Methode
+                        JOIN TranslationData t ON a.Methode = t.Methode
+                        JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
+                      WHERE a.Methode = '%s' AND a.Probennummer = d.Probennummer AND d.DoseResult <> 'No result';"
+    
+    # Fetch data from the database
+    validation.data <- NULL
+    validation.data <- dbGetQuery(con, sprintf(query.dxi.val, method))
+    # convert data to numeric
+    validation.data[,1] <- as.numeric(validation.data[,1])
+    # validation.data[,2] <- as.numeric(validation.data[,2])
+    
+    # omit rows with NA values
+    validation.data <- na.omit(validation.data)
+    
+```
+
+```{r PBregprep, echo=FALSE, message=FALSE, warning=FALSE}
+    
+  
+# this  needs further improvement, inadequate source!-------------------------------------
+# val.crit <- read_excel("vdata _DxI.xlsx", sheet = "CRIT")
+val.info <- read_excel("vdata _DxI.xlsx", sheet = "INFO")
+names(val.info)[2:3] <- c(paste(unique(validation.data$Bezeichnung),
+                                names(validation.data[1])),
+                          paste(unique(validation.data$Bezeichnung),names(validation.data[2])))
+val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
+##-------------------------------------------------------------------------------------
+  
+method.x <- as.numeric(validation.data[[1]])
+method.y <- as.numeric(validation.data[[2]])
+
+```
+
+```{r PBreg, echo=FALSE, message=FALSE, warning=FALSE}
+
+## PaBa (formal class names: PB.reg) regression, rename column titles in PB.reg@mnames
+set.seed(8173)
+#tryCatch({
+  PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+  PB.reg@mnames[1] <- colnames(validation.data)[1]
+  PB.reg@mnames[2] <- colnames(validation.data)[2]
+# }, error = function(e) {
+#   print(e)
+#   cat("Nicht genug Daten verfügbar für die Passing-Bablock-Regressionsanalyse")
+#   stop()
+# })
+
+
+# PB.reg <- mcreg(method.x,method.y, method.reg = "PaBa")
+# PB.reg@mnames[1] <- colnames(validation.data)[1]
+# PB.reg@mnames[2] <- colnames(validation.data)[2]
+
+```
+
+---
+title: "`r paste(val.info$x[1])`"  
+---  
+  
+# Einleitung 
+
+
+```{r cover_table, echo = FALSE, message = FALSE, warning = FALSE}
+
+val.info |>  flextable() |> 
+  bold(i = c(1, 11, 15, 17)) |> 
+  theme_vanilla() |>   
+  bg(bg = "darkgrey", i = 1) |> 
+  bg(bg = "lightgrey", i = c(11, 15, 17)) |> 
+  set_table_properties(width = 0.8, layout = "autofit") |> 
+  colformat_date(fmt_date = "%d/%m/%Y")
+
+```
+
+
+\newpage
+# ZUSAMMENFASSUNG DER MESSERGEBNISSE UND DATENAUSWERTUNG
+## Messdaten, Mittelwerte und Differenzen 
+  
+```{r data_table, echo = FALSE, warning = FALSE, message = FALSE}
+table.one <- data.frame(seq.int(nrow(validation.data)),validation.data[,c(1,5,2,6)])
+colnames(table.one)[1]  <-  paste("# ",validation.data$Bezeichnung[1])
+
+# table.one$"delta.%" <- (round(((table.one[[3]]-table.one[[2]])*100)/((table.one[[2]]+table.one[[3]])*0.5), digits = 1))
+table.one$"delta.%" <- (round((100-table.one[[2]]*100/table.one[[4]]), digits = 1))
+table.one$Probennummer <- validation.data$Probennummer
+
+table.one |> 
+  flextable() |>  
+  theme_vanilla() |>  
+  bg(bg = "grey", part = "header") |> 
+  align(align = "center", part = "all") |> 
+  bg(j = 6, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
+  set_table_properties(width = 0.6, layout = "autofit")
+```
+
+\newpage
+
+## Präzisionsdaten
+
+```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
+library(tidyverse)
+library(flextable)
+
+nameQuery <- sprintf("SELECT TestName FROM TranslationData WHERE Methode = '%s'", method)
+name <- dbGetQuery(con, nameQuery)[1, 1]
+
+# enable and register the REGEXP function in the SQLite connection
+initExtension(con, extension = "regexp")
+
+# SQL query for intra- and inter-assay precision data
+query.L <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
+                  FROM DxIvalData
+                  WHERE TestName = '%s' 
+                    AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
+                    AND DoseUnit IS NOT NULL
+                  GROUP BY
+                    TestStartDT;", name)
+
+query.H <- sprintf("SELECT TestName, TestStartDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
+                  FROM DxIvalData
+                  WHERE TestName = '%s' 
+                    AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
+                    AND DoseUnit IS NOT NULL;", name)
+
+# execute both queries
+prc.L.data <- dbGetQuery(con, query.L) 
+prc.H.data <- dbGetQuery(con, query.H)
+
+# define data processing function
+prc.data.fun <- function(prc.L.data, prc.H.data){
+
+  #transform prc.L.data
+  prc.L.data <-  prc.L.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  
+
+  #transform prc.H.data
+  prc.H.data <-  prc.H.data |>  group_by(Date = as.Date(TestStartDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  
+  # check the row numbers
+  if(nrow(prc.L.data) >= 25 | nrow(prc.H.data) >= 25){
+    # select the first 25 rows = precision data
+    prc.L.data <- head(prc.L.data, 25)
+    prc.H.data <- head(prc.H.data, 25)
+    
+    # proceed with table creation
+    prc.table.fun(prc.L.data, prc.H.data)
+  } else {
+    # return an error message
+    message("Not enough data available for precision analysis")
+    return(NULL)
+  }
+}
+
+prc.table.fun <- function(prc.L.data, prc.H.data){
+ 
+    # building the CLSIEP15 table
+    L.long <- data.frame(
+      rep = rep(1:5, each = 5),
+      name = paste(prc.L.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
+      value = prc.L.data$DoseResult[1:25]
+    )
+    
+    H.long <- data.frame(
+      rep = rep(1:5, each = 5),
+      name = paste(prc.H.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
+      value = prc.H.data$DoseResult[1:25]
+    )
+    
+    library(CLSIEP15)
+    prc.data.L <- calculate_aov_infos(L.long)
+    prc.data.H <- calculate_aov_infos(H.long)
+    
+    
+    
+    val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
+    
+    intra.df <- data.frame(
+      "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+      L = c(
+        paste(prc.data.L$N),
+        paste(val.prec$Ziel_intra1[1]),
+        paste(round(prc.data.L$mean, 2) ),
+        paste(round(prc.data.L$sd, 2) ),
+        paste(round(prc.data.L$CVR, 2) )
+      ),
+      H = c(
+        paste(prc.data.H$N),
+        paste(val.prec$Ziel_intra2[1]),
+        paste(round(prc.data.H$mean, 2) ),
+        paste(round(prc.data.H$sd, 2) ),
+        paste(round(prc.data.H$CVR, 2) )
+      )
+    )
+    
+    inter.df <- data.frame(
+      "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+      L = c(
+        paste(prc.data.L$n),
+        paste(val.prec$Ziel_inter1[1]),
+        paste(round(prc.data.L$mean, 2) ),
+        paste(round(prc.data.L$sd, 2) ),
+        paste(round(prc.data.L$CVWL, 2) )
+      ),
+      H = c(
+        paste(prc.data.H$n),
+        paste(val.prec$Ziel_inter2[1]),
+        paste(round(prc.data.H$mean, 2) ),
+        paste(round(prc.data.H$sd, 2) ),
+        paste(round(prc.data.H$CVWL, 2) )
+      )
+    )
+    
+    intra.df.ft <- flextable(intra.df)
+    intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
+    intra.df.ft <- autofit(intra.df.ft)
+    intra.df.ft <- add_footer_lines(intra.df.ft, "")
+    intra.df.ft <- bg(intra.df.ft, bg = "grey", part = "header")
+    
+    inter.df.ft <- flextable(inter.df)
+    inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
+    inter.df.ft <- autofit(inter.df.ft)    
+    inter.df.ft <- add_footer_lines(inter.df.ft, "")
+    inter.df.ft <- bg(inter.df.ft, bg = "grey", part = "header")
+    
+    # Return the tables so they can be rendered in the document
+    list(intra = intra.df.ft, inter = inter.df.ft)
+}
+
+ft <- prc.data.fun(prc.L.data, prc.H.data)
+if(!is.null(ft$intra)){
+  ft$intra
+  }else{
+  cat("Nicht genug Daten verfügbar für die Intra-Assay-Präzisionsanalyse")
+}
+
+if(!is.null(ft$inter)){
+  ft$inter
+  }else{
+  cat("Nicht genug Daten verfügbar für die Inter-Assay-Präzisionsanalyse")
+  }
+
+```
+
+
+
+
+```{r intra_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+# intra.df.ft <- flextable(intra.df)
+# intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
+# intra.df.ft <- autofit(intra.df.ft)
+# intra.df.ft <- add_footer_lines(intra.df.ft, "")
+# intra.df.ft |> bg(bg = "grey", part = "header")
+
+```
+  
+
+```{r inter_assay_table, echo = FALSE, message = FALSE, warning = FALSE}
+# inter.df.ft <- flextable(inter.df)
+# inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
+# inter.df.ft <- autofit(inter.df.ft)
+# inter.df.ft |> bg(bg = "grey", part = "header")
+
+```
+
+
+## Korrelation
+
+<!-- Pearsson correlation and plot, sample number n from PB.reg@data -->
+
+```{r correlation, echo=FALSE, out.height = "80%", out.width = "80%"}
+
+## Correlation plot with Pearsson correlation
+## Creating the plot
+plot(method.x, method.y, pch = 19, col = "#68228B", 
+     xlab=colnames(validation.data)[1], ylab=colnames(validation.data)[2])
+
+## Regression line
+abline(lm(method.y ~ method.x), col = "red", lwd = 3)
+
+## Pearson correlation
+# text(paste("Pearson's r:", round(cor(method.x, method.y), 2)), x=max(method.x)*0.85, y=max(method.y)*0.5)
+#text(paste("n=", nrow(PB.reg@data)), x=max(method.x)*0.85, y=max(method.y)*0.4)
+text.block <-  paste("Pearson's r:", round(cor(method.x, method.y), 2), "\nn=", nrow(PB.reg@data)) 
+mtext(text.block, side = 1, line = 3, cex = 1, col = "red", adj = 0)
+
+# paste("n=", nrow(PB.reg@data))
+
+
+
+```
+
+
+\newpage
+## Passing Bablok
+
+<!-- Passing Bablok Plot mit Steigung, Achsenabschnitt, Spearman's correlation  -->
+
+```{r PB, echo=FALSE, out.height = "80%", out.width = "80%"}
+
+MCResult.plot(PB.reg, equal.axis = TRUE, x.lab = colnames(validation.data)[1], y.lab = colnames(validation.data)[2], points.col = "#68228B", points.pch = 19, ci.area = TRUE, ci.area.col = "#0000FF50", main = paste("Validation", colnames(validation.data)[2], "vs", colnames(validation.data)[1]), sub = "", add.cor = TRUE, cor.method = "spearman", add.grid = FALSE, points.cex = 1)
+##Angabe Steigung und Achsenabschnitt und CI
+intercept_est <- PB.reg@para[1]
+intercept_lci <- PB.reg@para[5]
+intercept_uci <- PB.reg@para[7]
+gradient_est <- PB.reg@para[2]
+gradient_lci <- PB.reg@para[6]
+gradient_uci <- PB.reg@para[8]
+alpha_ci <- PB.reg@alpha[1]
+text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+text(cex=.65,x=max(validation.data[,1:2])*0.8,y=max(validation.data[,1:2])*0.35, sprintf("alpha : %4.2f", alpha_ci))
+
+```
+
+```{r coef_plot, echo = FALSE, warning = FALSE, message = FALSE}
+fitPaBa <- mcreg(as.matrix(validation.data[,1:2]), method.reg="PaBa", na.rm=TRUE)
+fitlr <- mcreg(as.matrix(validation.data[,1:2]), method.reg="LinReg", na.rm=TRUE)
+compareFit(fitlr, fitPaBa)
+```
+
+\newpage
+
+## Bland-Altman
+
+```{r BA, echo=FALSE, out.height = "80%", out.width = "80%"}
+MCResult.plotDifference(PB.reg)
+```
+
+```{r BArel, echo=FALSE, out.height = "80%", out.width = "80%"}
+
+MCResult.plotDifference(PB.reg, plot.type = 8, main = "rel Difference plot")
+```
+
+```{r Bias, echo=FALSE, out.height = "90%", out.width = "90%"}
+## Calculation of models
+m2 <- mcreg(method.x,method.y,method.reg="PaBa", method.ci="bootstrap",
+            method.bootstrap.ci="BCa",mref.name=colnames(validation.data)[1],
+            mtest.name=colnames(validation.data)[2], na.rm=TRUE)
+## Drawing of proportional bias
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, cex.sub=0.2)
+
+```
+
+```{r Bias_prop, echo=FALSE, out.height = "90%", out.width = "90%"}
+plotBias(m2, ci.area=TRUE, ci.border=TRUE, prop=TRUE, cex.sub=0.2)
+```
+
+\newpage
+
+# Schlussfolgerung und Freigabe
+
+
+
+<!-- User Input zur Beurteilung und Freigabe -->
+
+
+
+```{r Schlussfolgerung, echo = FALSE}
+block_pour_docx("blocks_Akzeptanzkriterien.docx")
+```
+---
+
+**Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
+
+\newpage
+
+--- 
+
+#### Data is processed using R language^1^, mcr package^2^ and flextable package^3^. Rmarkdown^4^, Officedown^5^ and Officer^6^ are used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^7^, Burak Bahar (Washington, USA)^8^ and David Gohel (Roubaix, F)^9^.
+  
+#### References and packages:
+  
+1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
+2.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
+3.  flextable: a framework for easily creating tables. Version: `r packageDescription("flextable")$Version` URL: <http://CRAN.R-project.org/package=flextable>
+4.  rmarkdown: Dynamic Documents for R. Version: `r packageDescription("rmarkdown")$Version` URL: <http://rmarkdown.rstudio.com>
+5.  officedown: Formatting Microsoft documents produced by RMarkdown. R Version: `r packageDescription("officedown")$Version` URL: <http://CRAN.R-project.org/package=officedown>
+6.  officer: Manipulation of Microsoft Word and PowerPoint Documents. R Version: `r packageDescription("officer")$Version` URL: <http://CRAN.R-project.org/package=officer>
+7.  The Lab-R-torian: URL: <https://labrtorian.com/>
+8.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+9.  SOLUTIONS ET FORMATIONS EN DATA-SCIENCE: URL: <https://www.ardata.fr/>
+
+---
