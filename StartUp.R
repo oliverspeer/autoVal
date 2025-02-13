@@ -55,13 +55,16 @@ StartUpRoutine <- function() {
     } else if (os == "Windows") {
       # Path for Windows
       # Adjust the path as necessary for your Windows setup
-      # path <- "C:/R_local/labStat/ClinicalChemistry_1.db"
+      if (file.exists("H:/R/autoVal_H")) {
       assign("path", "H:\\R\\autoVal_H\\ClinicalChemistry_2.db", envir = .GlobalEnv)
     } else {
+      assign( "path", "C:/R_local/autoVal/ClinicalChemistry_2.db", envir = .GlobalEnv)
+    } 
+    } else {  
       stop("Operating system not supported")
     }
     
-    return(path)
+    #return(path)
   }
   
   # Get the path of the current project
