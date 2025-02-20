@@ -153,33 +153,74 @@ name <- dbGetQuery(con, nameQuery)[1, 1]
 initExtension(con, extension = "regexp")
 
 # SQL query for intra- and inter-assay precision data
-query.L <- sprintf("SELECT TestName, TestCompleteDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
-                  FROM DxIvalData
-                  WHERE TestName = '%s' 
-                    AND SampleID REGEXP '[a-zA-Z]+1' --_\\d'
-                    AND DoseUnit IS NOT NULL
-                  GROUP BY
-                    TestCompleteDT;", name)
+query.L <- sprintf("SELECT 
+                        d.TestName, 
+                        d.TestCompleteDT, 
+                        d.SampleID,
+                        q.Level,
+                        CAST(d.DoseResult_c AS FLOAT) AS DoseResult, 
+                        d.DoseUnit, 
+                        d.Einheit_800,
+                        q.Zielwert,
+                        q.LotNr,
+                        q.maxDate,
+                        q.minDate
+                  FROM DxIvalData d
+                  JOIN TranslationData t ON d.TestOrderCode = t.TestOrderCode
+                  JOIN QCData q ON q.Parameter = t.RemisolCode
+                  WHERE d.TestName = '%s' 
+                    AND d.SampleID REGEXP '[a-zA-Z]+1' --_\\d'
+                    AND d.DoseUnit IS NOT NULL
+                    AND q.Level = 1
+                    --AND d.TestCompleteDT <= q.maxDate --AND d.TestCompleteDT >= q.minDate
+                  --GROUP BY
+                    --d.TestCompleteDT
+                  ;", name)
 
-query.H <- sprintf("SELECT TestName, TestCompleteDT, SampleID, CAST(DoseResult_c AS FLOAT) AS DoseResult, DoseUnit, Einheit_800
-                  FROM DxIvalData
-                  WHERE TestName = '%s' 
-                    AND SampleID REGEXP '[a-zA-Z]+2' --_\\d'
-                    AND DoseUnit IS NOT NULL;", name)
+query.H <- sprintf("SELECT 
+                        d.TestName, 
+                        d.TestCompleteDT, 
+                        d.SampleID,
+                        q.Level,
+                        CAST(d.DoseResult_c AS FLOAT) AS DoseResult, 
+                        d.DoseUnit, 
+                        d.Einheit_800,
+                        q.Zielwert,
+                        q.LotNr,
+                        q.maxDate,
+                        q.minDate
+                  FROM DxIvalData d
+                  JOIN TranslationData t ON d.TestOrderCode = t.TestOrderCode
+                  JOIN QCData q ON q.Parameter = t.RemisolCode
+                  WHERE d.TestName = '%s' 
+                    AND d.SampleID REGEXP '[a-zA-Z]+2' --_\\d'
+                    AND d.DoseUnit IS NOT NULL
+                    AND q.Level = 2
+                    --AND d.TestCompleteDT <= q.maxDate --AND d.TestCompleteDT >= q.minDate
+                  --GROUP BY
+                    --d.TestCompleteDT
+                  ;", name)
 
 # execute both queries
-prc.L.data <- dbGetQuery(con, query.L) 
-prc.H.data <- dbGetQuery(con, query.H)
+prc.L.data <- dbGetQuery(con, query.L) |> 
+  mutate(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y"),
+         maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
+  filter(Date <= maxDate & Date >= minDate)
+
+prc.H.data <- dbGetQuery(con, query.H)|> 
+  mutate(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y"),
+         maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
+  filter(Date <= maxDate & Date >= minDate)
 
 # define data processing function
 prc.data.fun <- function(prc.L.data, prc.H.data){
 
   #transform prc.L.data
-  prc.L.data <-  prc.L.data |>  group_by(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  prc.L.data <-  prc.L.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
   
 
   #transform prc.H.data
-  prc.H.data <-  prc.H.data |>  group_by(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y")) |> slice_head(n = 5) |> ungroup()
+  prc.H.data <-  prc.H.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
   
   # check the row numbers
   if(nrow(prc.L.data) >= 25 | nrow(prc.H.data) >= 25){
@@ -202,73 +243,113 @@ prc.table.fun <- function(prc.L.data, prc.H.data){
     L.long <- data.frame(
       rep = rep(1:5, each = 5),
       name = paste(prc.L.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
-      value = prc.L.data$DoseResult[1:25]
+      value = prc.L.data$DoseResult[1:25],
+      Zielwert = prc.L.data$Zielwert[1:25]
     )
     
     H.long <- data.frame(
       rep = rep(1:5, each = 5),
       name = paste(prc.H.data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
-      value = prc.H.data$DoseResult[1:25]
+      value = prc.H.data$DoseResult[1:25],
+      Zielwert = prc.H.data$Zielwert[1:25]
     )
     
-    library(CLSIEP15)
-    prc.data.L <- calculate_aov_infos(L.long)
-    prc.data.H <- calculate_aov_infos(H.long)
+    # prec.intra.L <- L.long |> 
+    #   group_by(rep) |>
+    #   summarise(N = n(),
+    #             mean = mean(value),
+    #             sd = sd(value),
+    #             CVR = sd(value) / mean(value) * 100,
+    #             Zielwert = mean(Zielwert))
     
-    
-    
-    val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
+     library(CLSIEP15)
+     prc.data.L <- calculate_aov_infos(L.long)
+     prc.data.H <- calculate_aov_infos(H.long)
+     bias.L <- calculate_bias_interval('E', 
+                                       nrun = prc.data.L$N/prc.data.L$k, 
+                                       nrep = prc.data.L$k, 
+                                       SWL = prc.data.L$SWL, 
+                                       SR = prc.data.L$SR, 
+                                       nsamples = 2, 
+                                       expected_mean = prc.L.data$Zielwert[c(1, 25)], 
+                                       user_mean = prc.data.L$mean)
+
+    bias.H <- calculate_bias_interval('E', 
+                                      nrun = prc.data.H$N/prc.data.H$k, 
+                                      nrep = prc.data.H$k, 
+                                      SWL = prc.data.H$SWL, 
+                                      SR = prc.data.H$SR, 
+                                      nsamples = 2, 
+                                      expected_mean = prc.H.data$Zielwert[c(1, 25)], 
+                                      user_mean = prc.data.H$mean)
+    # 
+    # 
+    # 
+    # val.prec <- read_excel("vdata _DxI.xlsx", sheet = "PREC")
     
     intra.df <- data.frame(
-      "Intra Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+      "Präzisionsdaten" = c("n intra & bias", "n inter", "Zielwert", "Untere Grenze", "Mittelwert", "SD",  "Obere Grenze", "Bias", "Intra Assay VK (%)", "Inter Assay VK (%)"),
       L = c(
         paste(prc.data.L$N),
-        paste(val.prec$Ziel_intra1[1]),
-        paste(round(prc.data.L$mean, 2) ),
-        paste(round(prc.data.L$sd, 2) ),
-        paste(round(prc.data.L$CVR, 2) )
-      ),
-      H = c(
-        paste(prc.data.H$N),
-        paste(val.prec$Ziel_intra2[1]),
-        paste(round(prc.data.H$mean, 2) ),
-        paste(round(prc.data.H$sd, 2) ),
-        paste(round(prc.data.H$CVR, 2) )
-      )
-    )
-    
-    inter.df <- data.frame(
-      "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
-      L = c(
         paste(prc.data.L$n),
-        paste(val.prec$Ziel_inter1[1]),
+        paste(min(prc.L.data$Zielwert), "|", max(prc.L.data$Zielwert)),
+        paste(min(bias.L$interval$lower_limit), "|", max(bias.L$interval$lower_limit)),
         paste(round(prc.data.L$mean, 2) ),
         paste(round(prc.data.L$sd, 2) ),
+        paste(min(bias.L$interval$higher_limit), "|", max(bias.L$interval$higher_limit)),
+        paste(round(bias.L$bias[1], 2), "|", round(bias.L$bias[2], 2)),
+        paste(round(prc.data.L$CVR, 2) ),
         paste(round(prc.data.L$CVWL, 2) )
       ),
       H = c(
+        paste(prc.data.H$N),
         paste(prc.data.H$n),
-        paste(val.prec$Ziel_inter2[1]),
+        paste(min(prc.H.data$Zielwert), "|", max(prc.H.data$Zielwert)),
+        paste(min(bias.H$interval$lower_limit), "|", max(bias.H$interval$lower_limit)),
         paste(round(prc.data.H$mean, 2) ),
         paste(round(prc.data.H$sd, 2) ),
+        paste(min(bias.H$interval$higher_limit), "|", max(bias.H$interval$higher_limit)),
+        paste(round(bias.H$bias[1], 2), "|", round(bias.H$bias[2], 2)),
+        paste(round(prc.data.H$CVR, 2) ),
         paste(round(prc.data.H$CVWL, 2) )
       )
     )
     
-    intra.df.ft <- flextable(intra.df)
-    intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
-    intra.df.ft <- autofit(intra.df.ft)
-    intra.df.ft <- add_footer_lines(intra.df.ft, "")
-    intra.df.ft <- bg(intra.df.ft, bg = "grey", part = "header")
+    colnames(intra.df)[1] <- paste("Präzisionsdaten", name)
     
-    inter.df.ft <- flextable(inter.df)
-    inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
-    inter.df.ft <- autofit(inter.df.ft)    
-    inter.df.ft <- add_footer_lines(inter.df.ft, "")
-    inter.df.ft <- bg(inter.df.ft, bg = "grey", part = "header")
+    # inter.df <- data.frame(
+    #   "Inter Assay" = c("n", "Zielwert", "Mittelwert", "SD", "VK (%)"),
+    #   L = c(
+    #     paste(prc.data.L$n),
+    #     paste(min(prc.L.data$Zielwert), "&", max(prc.L.data$Zielwert)),
+    #     paste(round(prc.data.L$mean, 2) ),
+    #     paste(round(prc.data.L$sd, 2) ),
+    #     paste(round(prc.data.L$CVWL, 2) )
+    #   ),
+    #   H = c(
+    #     paste(prc.data.H$n),
+    #     paste(min(prc.H.data$Zielwert), "&", max(prc.H.data$Zielwert)),
+    #     paste(round(prc.data.H$mean, 2) ),
+    #     paste(round(prc.data.H$sd, 2) ),
+    #     paste(round(prc.data.H$CVWL, 2) )
+    #   )
+    # )
+    
+    intra.df.ft <- flextable(intra.df)|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+    
+    # inter.df.ft <- flextable(inter.df)
+    # inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
+    # inter.df.ft <- autofit(inter.df.ft)    
+    # inter.df.ft <- add_footer_lines(inter.df.ft, "")
+    # inter.df.ft <- bg(inter.df.ft, bg = "grey", part = "header")
     
     # Return the tables so they can be rendered in the document
-    list(intra = intra.df.ft, inter = inter.df.ft)
+    list(intra = intra.df.ft#, inter = inter.df.ft
+         )
 }
 
 ft <- prc.data.fun(prc.L.data, prc.H.data)
@@ -278,11 +359,11 @@ if(!is.null(ft$intra)){
   cat("Nicht genug Daten verfügbar für die Intra-Assay-Präzisionsanalyse")
 }
 
-if(!is.null(ft$inter)){
-  ft$inter
-  }else{
-  cat("Nicht genug Daten verfügbar für die Inter-Assay-Präzisionsanalyse")
-  }
+# if(!is.null(ft$inter)){
+#   ft$inter
+#   }else{
+#   cat("Nicht genug Daten verfügbar für die Inter-Assay-Präzisionsanalyse")
+#   }
 
 ```
 
