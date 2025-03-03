@@ -35,7 +35,7 @@ method <- params$method
 
  query.dxi.val <- "SELECT DISTINCT
                         a.Werte AS DxI800,
-                        d.DoseResult_c AS DxI9000,
+                        MAX(d.DoseResult_c) AS DxI9000,
                         a.Bezeichnung,
                         a.Methode,
                         m.EINHEIT AS Einheit_800,
@@ -44,8 +44,12 @@ method <- params$method
                       FROM MeasurementData a
                         JOIN MethodData m ON a.Methode = m.Methode
                         JOIN TranslationData t ON a.Methode = t.Methode
-                        JOIN DxIvalData d ON t.TestOrderCode = d.TestOrderCode
-                      WHERE a.Methode = '%s' AND a.Probennummer = d.Probennummer AND d.DoseResult <> 'No result';"
+                        JOIN DxIvalData d 
+                            ON t.TestOrderCode = d.TestOrderCode
+                            AND a.Probennummer = d.Probennummer 
+                      WHERE a.Methode = '%s' 
+                        AND d.DoseResult <> 'No result'
+                      GROUP BY a.Probennummer;"
     
     # Fetch data from the database
     validation.data <- NULL
