@@ -132,17 +132,17 @@ ggplot(qc.dat2, aes(y = Parameter)) +
   theme_minimal() + # Minimalistisches Design
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) # Achsenbeschriftung drehen
 
-translate.df <- dbReadTable(con, "TranslationData")
-write.xlsx(translate.df, "TranslationData.xlsx")
-translation.data <- read.xlsx("TranslationData.xlsx") |> 
-  select(-TranslationID)
+# translate.df <- dbReadTable(con, "TranslationData")
+# write.xlsx(translate.df, "TranslationData.xlsx")
+# translation.data <- read.xlsx("TranslationData.xlsx") |> 
+#   select(-TranslationID)
 
 
 
 
 
-# drop TABLE TranslationData from SQLite DB con
-dbExecute(con, "DROP TABLE IF EXISTS TranslationData")
+# # drop TABLE TranslationData from SQLite DB con
+# dbExecute(con, "DROP TABLE IF EXISTS TranslationData")
 
 
 # automatically create a SQL TABLE containing QC data
@@ -163,22 +163,29 @@ map.data.types <- function(df) {
 }
 
 # write new TranslationData to SQLite DB---------------------------------------------------------
-col.types <- map.data.types(translation.data)
-create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS TranslationData (",
-                                 paste(
-                                   sapply(names(col.types), function(name) paste0('"', name, '"')),
-                                   col.types, 
-                                   sep=" ", 
-                                   collapse=", "),
-                                 ", TranslationID INTEGER PRIMARY KEY AUTOINCREMENT",
-                                 ", FOREIGN KEY (TestOrderCode) REFERENCES DxIvalData (TestOrderCode)",
-                                 ", FOREIGN KEY (Methode) REFERENCES MethodData (Methode)",
-                                 ")")
-dbExecute(con, create.table.statement)
-dbWriteTable(con, "TranslationData", translation.data, row.names = FALSE, append = TRUE)
+# col.types <- map.data.types(translation.data)
+# create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS TranslationData (",
+#                                  paste(
+#                                    sapply(names(col.types), function(name) paste0('"', name, '"')),
+#                                    col.types, 
+#                                    sep=" ", 
+#                                    collapse=", "),
+#                                  ", TranslationID INTEGER PRIMARY KEY AUTOINCREMENT",
+#                                  ", FOREIGN KEY (TestOrderCode) REFERENCES DxIvalData (TestOrderCode)",
+#                                  ", FOREIGN KEY (Methode) REFERENCES MethodData (Methode)",
+#                                  ")")
+# dbExecute(con, create.table.statement)
+# dbWriteTable(con, "TranslationData", translation.data, row.names = FALSE, append = TRUE)
+# 
+# 
+# dbReadTable(con, "TranslationData")
 
 
-dbReadTable(con, "TranslationData")
+
+
+
+
+
 
 # automatically create a SQL TABLE containing QC data--------------------------------------
 # map data types from val.dat
@@ -205,3 +212,55 @@ create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS QCData (",
 # create the table in the SQLite DB
 dbExecute(con, create.table.statement)
 dbWriteTable(con, "QCData", qc.dat2, row.names = FALSE, append = TRUE)
+
+
+
+# Importieren von Daten von QUALAB und BCI-Packungsbeilagen------------------------------------------------------
+# Vorbereiten CSV-Datei für Qualab und BCI
+write_csv(data.frame(Parameter = unique(qc.dat2$Parameter)), "qualabBCI.csv")
+
+#importieren von Randox-DAten
+Randox_immuno1 <- read.csv("LIA5142_Immuno1.csv") |> 
+  mutate(L1_Mean = Mean,
+         L1_SD = SD) |>
+  select(-Mean, -SD)
+
+Randox_immuno2 <- read.csv("LIA5143_immuno2.csv") |> 
+  mutate(L2_Mean = Mean,
+         L2_SD = SD) |>
+  select(-Mean, -SD)
+
+Randox_immuno3 <- read.csv("LIA5144_Immuno3.csv") |> 
+  mutate(L3_Mean = Mean,
+         L3_SD = SD) |>
+  select(-Mean, -SD)
+
+Randox_immuno <- full_join(Randox_immuno1, Randox_immuno2, by = "Analyte") |> 
+  full_join(Randox_immuno3, by = "Analyte") |> 
+  select(Analyte, L1_Mean, L1_SD, L2_Mean, L2_SD, L3_Mean, L3_SD)
+
+write_excel_csv(Randox_immuno, "Randox_immuno.csv")
+# manually filled in information from Randox & BCI package inserts & from www.Qualab.ch
+qualab.BCI.randox.data <- read_excel("qualabBCIRANDOX.xlsx") 
+
+
+
+col.types <- map.data.types(qualab.BCI.randox.data)
+
+# construct a CREATE TABLE statement for val.dat using the mapped data types
+create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS QBRData (",
+                                 paste(
+                                   sapply(names(col.types), function(name) paste0('"', name, '"')),
+                                   col.types, 
+                                   sep=" ", 
+                                   collapse=", "),
+                                 ", QBRID INTEGER PRIMARY KEY AUTOINCREMENT",
+                                 ", FOREIGN KEY (RemisolCode) REFERENCES TranslationData (RemisolCode)",
+                                 ")") 
+
+# connect to SQLite DB
+# con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+
+# create the table in the SQLite DB
+dbExecute(con, create.table.statement)
+dbWriteTable(con, "QBRData", qualab.BCI.randox.data, row.names = FALSE, append = TRUE)
