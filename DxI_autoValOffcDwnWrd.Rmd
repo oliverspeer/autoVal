@@ -144,7 +144,7 @@ table.one |>
 
 \newpage
 
-## Präzisionsdaten
+## Präzision
 
 ```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
 library(tidyverse)
@@ -368,11 +368,49 @@ if(!is.null(ft$intra)){
 #   }else{
 #   cat("Nicht genug Daten verfügbar für die Inter-Assay-Präzisionsanalyse")
 #   }
-
 ```
 
+\newpage
 
+## Rohdaten für Präzisionsmetriken
 
+:::: {.columns}
+
+:::
+
+```{r rawdataL_intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
+prc.L.ft <- prc.L.data|>
+  select(Date, TestName, Level, DoseResult, Einheit_800, Zielwert, LotNr ) |> 
+  flextable() |> 
+  align(align = "center", part = "all")|>
+  fontsize(size = 6, part = "all")|>
+  autofit()|>
+  add_footer_lines("")|>
+  bg(bg = "grey", part = "header")
+prc.L.ft
+```
+
+:::
+
+::: 
+
+```{r rawdataH_intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
+prc.H.ft <- prc.H.data|>
+  select(Date, TestName, Level, DoseResult, Einheit_800, Zielwert, LotNr ) |> 
+  flextable() |> 
+  align(align = "center", part = "all")|>
+  fontsize(size = 6, part = "all")|>
+  autofit()|>
+  add_footer_lines("")|>
+  bg(bg = "grey", part = "header")
+prc.H.ft
+```
+
+:::
+
+::::
+
+\newpage
 
 ```{r intra_assay_table, echo = FALSE, eval=FALSE, message = FALSE, warning = FALSE}
 # intra.df.ft <- flextable(intra.df)
