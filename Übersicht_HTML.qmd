@@ -177,24 +177,28 @@ colnames(prc.dat) <- c("n_L1", "n_L2", "n_L3", "DxI9000")
   #
 ```
 
-
 ```{r, SQLRIqueries, echo=FALSE, message=FALSE, warning=FALSE}
 # Alle TestName-Werte abrufen
 RI_data <- dbGetQuery(con, "
   SELECT DISTINCT 
     d.TestName AS DxI9000, 
     m.REF_L_M AS RI_L,
-    m.REF_H_M AS RI_H --,
-    --m.REF_L_W,
-    --m.REF_H_W
-  FROM MeasurementData md
-  JOIN MethodData m USING (Methode)
+    m.REF_H_M AS RI_H 
+  FROM MethodData m
   JOIN TranslationData t USING (Methode)
-  JOIN DxIvalData d USING (TestOrderCode)
-  --WHERE d.Probennummer = md.Probennummer
-    --AND d.DoseResult <> 'No result'
-  ;")
+  JOIN DxIvalData d USING (TestOrderCode);
+")
+```
 
+```{r, SQLtargetqueries, echo=FALSE, message=FALSE, warning=FALSE}
+VK_data <- dbGetQuery(con, "
+  SELECT DISTINCT 
+    d.TestName AS DxI9000, 
+    q.'QUALAB_3S[%]', 
+    q.'BCI_VK[%]'
+  FROM QBRData q
+  JOIN DxIvalData d USING (TestName)
+  WHERE d.DoseResult <> 'No result';")
 
 ```
 
@@ -206,7 +210,7 @@ test_data <- dbGetQuery(con, "
     CAST(md.Werte AS REAL) AS x, 
     CAST(d.DoseResult_c AS REAL) AS y
   FROM MeasurementData md
-  JOIN MethodData m USING (Methode)
+  --JOIN MethodData m USING (Methode)
   JOIN TranslationData t USING (Methode)
   JOIN DxIvalData d USING (TestOrderCode)
   WHERE d.Probennummer = md.Probennummer
@@ -221,16 +225,44 @@ test_data <- test_data |>
 compute_pb_regression <- function(df, test_name) {
   xy_data <- df |> filter(DxI9000 == test_name)
   
-  if (nrow(xy_data) > 2) {  # Mindestens 3 Werte für die Regression notwendig
-    pb_model <- mcreg(xy_data$x, xy_data$y, method.reg = "PaBa")
-    range <- paste(min(round(xy_data$y,2)), "bis", max(round(xy_data$y, 2)))
-    slope <- round(pb_model@para[2, 1], 2)
-    intercept <- round(pb_model@para[1, 1], 2)
-    slope_CI_lower <- round(pb_model@para[2, 3], 2)
-    slope_CI_upper <- round(pb_model@para[2, 4], 2)
-    intercept_CI_lower <- round(pb_model@para[1, 3], 2)
-    intercept_CI_upper <- round(pb_model@para[1, 4], 2)
+  # Prüfe Anzahl der eindeutigen Werte
+  unique_x <- length(unique(xy_data$x))
+  unique_y <- length(unique(xy_data$y))
+  
+  # Prüfe Standardabweichung und Anzahl eindeutiger Werte
+  if (nrow(xy_data) > 2 && unique_x > 3 && unique_y > 3 &&
+      sd(xy_data$x, na.rm = TRUE) > 0 && sd(xy_data$y, na.rm = TRUE) > 0) {
+    
+    #print(paste("Test:", test_name, "n:", nrow(xy_data), 
+    #            "Unique X:", unique_x, "Unique Y:", unique_y))
+    
+    pb_model <- tryCatch(
+      mcreg(xy_data$x, xy_data$y, method.reg = "PaBa"),
+      error = function(e) return(NULL)
+    )
+    
+    if (!is.null(pb_model)) {
+      range <- paste(min(round(xy_data$y, 2)), "bis", max(round(xy_data$y, 2)))
+      slope <- round(pb_model@para[2, 1], 2)
+      intercept <- round(pb_model@para[1, 1], 2)
+      slope_CI_lower <- round(pb_model@para[2, 3], 2)
+      slope_CI_upper <- round(pb_model@para[2, 4], 2)
+      intercept_CI_lower <- round(pb_model@para[1, 3], 2)
+      intercept_CI_upper <- round(pb_model@para[1, 4], 2)
+    } else {
+      range <- NA
+      slope <- NA
+      intercept <- NA
+      slope_CI_lower <- NA
+      slope_CI_upper <- NA
+      intercept_CI_lower <- NA
+      intercept_CI_upper <- NA
+    }
   } else {
+    print(paste("Skipping test:", test_name, 
+                "n:", nrow(xy_data), 
+                "Unique X:", unique_x, 
+                "Unique Y:", unique_y))
     range <- NA
     slope <- NA
     intercept <- NA
@@ -245,16 +277,14 @@ compute_pb_regression <- function(df, test_name) {
                     m = slope, 
                     m_CI_l = slope_CI_lower, 
                     m_CI_h = slope_CI_upper,
-                   # m1 = slope, 
                     i = intercept,
                     i_CI_l = intercept_CI_lower,
                     i_CI_h = intercept_CI_upper))
 }
 
-# Iteration über alle DxI9000-Werte
 pb_results <- bind_rows(lapply(unique(test_data$DxI9000), compute_pb_regression, df = test_data))
-```
 
+```
 
 ```{r SQLqueriesVKsBias , echo=FALSE, message=FALSE, warning=FALSE}
 library(CLSIEP15)
@@ -356,6 +386,7 @@ qc_results <- bind_rows(Filter(Negate(is.null), lapply(unique(all_data$DxI9000),
     sum.dat <- merge(sum.dat, n.double.dat, by = "DxI9000", all = TRUE)
     sum.dat <- merge(sum.dat, RI_data, by = "DxI9000", all = TRUE)
     sum.dat <- merge(sum.dat, pb_results, by = "DxI9000", all = TRUE)
+    sum.dat <- merge(sum.dat, VK_data, by = "DxI9000", all = TRUE)
     sum.dat <- merge(sum.dat, qc_results, by = "DxI9000", all = TRUE)
     sum.dat[is.na(sum.dat)] <- 0
     
@@ -384,7 +415,7 @@ date_color <- function(date) {
 #write into Excel-sheet
 library(openxlsx)
 # load excel file
-wb <- loadWorkbook("Übersicht Ablauf Verifizierung.xlsx")
+wb <- loadWorkbook("I:/Institut-Haus 04/Labor 2_Core Lab Klinische Chemie/Evaluationen/Geraete/DxI9000/Validation/3_Datenanalysen_Dokumentation/Übersicht Ablauf Verifizierung.xlsx")
 
 # remove table if exists
 tables <- getTables(wb, sheet = "Übersicht")
@@ -409,7 +440,7 @@ writeDataTable(wb, sheet = "Übersicht",
          colNames = TRUE)  # Aktiviert Filter
 
 # save workbook
-saveWorkbook(wb, "Übersicht Ablauf Verifizierung.xlsx", overwrite = TRUE)
+saveWorkbook(wb, "I:/Institut-Haus 04/Labor 2_Core Lab Klinische Chemie/Evaluationen/Geraete/DxI9000/Validation/3_Datenanalysen_Dokumentation/Übersicht Ablauf Verifizierung.xlsx", overwrite = TRUE)
 
 # # Create a flextable object
 # ft <- sum.dat |> 
