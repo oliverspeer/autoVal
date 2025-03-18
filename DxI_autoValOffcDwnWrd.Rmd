@@ -18,6 +18,9 @@ params:
 
  source("StartUp.R")
  StartUpRoutine()
+ 
+ source("fun_recent_QCData_CLSI.R")
+ 
 
 set_flextable_defaults(font.size = 11, padding = 3)
 use_df_printer()
@@ -31,7 +34,7 @@ method <- params$method
 
 ```{r Datentabelle, echo=FALSE, message = FALSE, warning = FALSE}
 
-# Import Data from a the SQLite database
+# Import Data from the SQLite database
 
  query.dxi.val <- "SELECT DISTINCT
                         a.Werte AS DxI800,
@@ -173,13 +176,9 @@ query.L <- sprintf("SELECT
                   JOIN TranslationData t ON d.TestOrderCode = t.TestOrderCode
                   JOIN QCData q ON q.Parameter = t.RemisolCode
                   WHERE d.TestName = '%s' 
-                    AND d.SampleID REGEXP '[a-zA-Z]+1' --_\\d'
+                    AND d.SampleID REGEXP '[a-zA-Z]+1' 
                     AND d.DoseUnit IS NOT NULL
-                    AND q.Level = 1
-                    --AND d.TestCompleteDT <= q.maxDate --AND d.TestCompleteDT >= q.minDate
-                  --GROUP BY
-                    --d.TestCompleteDT
-                  ;", name)
+                    AND q.Level = 1;", name)
 
 query.H <- sprintf("SELECT 
                         d.TestName, 
@@ -211,35 +210,41 @@ prc.L.data <- dbGetQuery(con, query.L) |>
          maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
   filter(Date <= maxDate & Date >= minDate)
 
+prc.L.data <- get_recent_data(prc.L.data, "^QC")
+
 prc.H.data <- dbGetQuery(con, query.H)|> 
   mutate(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y"),
          maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
   filter(Date <= maxDate & Date >= minDate)
 
-# define data processing function
-prc.data.fun <- function(prc.L.data, prc.H.data){
+prc.H.data <- get_recent_data(prc.H.data, "^QC")
 
-  #transform prc.L.data
-  prc.L.data <-  prc.L.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
-  
 
-  #transform prc.H.data
-  prc.H.data <-  prc.H.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
-  
-  # check the row numbers
-  if(nrow(prc.L.data) >= 25 | nrow(prc.H.data) >= 25){
-    # select the first 25 rows = precision data
-    prc.L.data <- head(prc.L.data, 25)
-    prc.H.data <- head(prc.H.data, 25)
-    
-    # proceed with table creation
-    prc.table.fun(prc.L.data, prc.H.data)
-  } else {
-    # return an error message
-    message("Not enough data available for precision analysis")
-    return(NULL)
-  }
-}
+# define data processing function----------------------------------------
+# prc.data.fun <- function(prc.L.data, prc.H.data){
+# 
+#   # #transform prc.L.data
+#   # prc.L.data <-  prc.L.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
+#   # 
+#   # 
+#   # #transform prc.H.data
+#   # prc.H.data <-  prc.H.data |>  group_by(Date) |> slice_head(n = 5) |> ungroup()
+#   # 
+#   # # check the row numbers
+#   # if(nrow(prc.L.data) >= 25 | nrow(prc.H.data) >= 25){
+#   #   # select the first 25 rows = precision data
+#   #   prc.L.data <- head(prc.L.data, 25)
+#   #   prc.H.data <- head(prc.H.data, 25)
+#     prc.L.data <- get_recent_data(prc.L.data, "^QC")
+#     prc.L.data <- get_recent_data(prc.L.data, "^QC")
+#     # proceed with table creation
+#     prc.table.fun(prc.L.data, prc.H.data)
+#   # } else {
+#   #   # return an error message
+#   #   message("Not enough data available for precision analysis")
+#   #   return(NULL)
+#   # }
+# }
 
 prc.table.fun <- function(prc.L.data, prc.H.data){
  
@@ -356,12 +361,54 @@ prc.table.fun <- function(prc.L.data, prc.H.data){
          )
 }
 
-ft <- prc.data.fun(prc.L.data, prc.H.data)
+ft <- prc.table.fun(prc.L.data, prc.H.data)
 if(!is.null(ft$intra)){
   ft$intra
   }else{
   cat("Nicht genug Daten verfügbar für die Intra-Assay-Präzisionsanalyse")
-}
+  }
+```
+
+#### L1 Rohdaten
+```{r intra_and_inter_assay_L_data, echo = FALSE, message = FALSE, warning=FALSE}
+prc.L.data.wide <- prc.L.data |> 
+  arrange(Date) |>
+  group_by(Date) %>%
+  mutate(row_id = row_number()) %>%
+  select(Date, DoseResult, row_id) %>%
+  pivot_wider(
+    names_from = Date,
+    values_from = DoseResult,
+    id_cols = row_id
+  ) %>%
+  select(-row_id) |> 
+  flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+prc.L.data.wide
+```
+
+#### L2 Rohdaten
+```{r intra_and_inter_assay_H_data, echo = FALSE, message = FALSE, warning=FALSE}
+prc.H.data.wide <- prc.H.data |> 
+  arrange(Date) |>
+  group_by(Date) %>%
+  mutate(row_id = row_number()) %>%
+  select(Date, DoseResult, row_id) %>%
+  pivot_wider(
+    names_from = Date,
+    values_from = DoseResult,
+    id_cols = row_id
+  ) %>%
+  select(-row_id) |>
+  flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+prc.H.data.wide
 
 # if(!is.null(ft$inter)){
 #   ft$inter
@@ -370,65 +417,6 @@ if(!is.null(ft$intra)){
 #   }
 ```
 
-\newpage
-
-## Rohdaten für Präzisionsmetriken
-
-:::: {.columns}
-
-:::
-
-```{r rawdataL_intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
-prc.L.ft <- prc.L.data|>
-  select(Date, TestName, Level, DoseResult, Einheit_800, Zielwert, LotNr ) |> 
-  flextable() |> 
-  align(align = "center", part = "all")|>
-  fontsize(size = 6, part = "all")|>
-  autofit()|>
-  add_footer_lines("")|>
-  bg(bg = "grey", part = "header")
-prc.L.ft
-```
-
-:::
-
-::: 
-
-```{r rawdataH_intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
-prc.H.ft <- prc.H.data|>
-  select(Date, TestName, Level, DoseResult, Einheit_800, Zielwert, LotNr ) |> 
-  flextable() |> 
-  align(align = "center", part = "all")|>
-  fontsize(size = 6, part = "all")|>
-  autofit()|>
-  add_footer_lines("")|>
-  bg(bg = "grey", part = "header")
-prc.H.ft
-```
-
-:::
-
-::::
-
-\newpage
-
-```{r intra_assay_table, echo = FALSE, eval=FALSE, message = FALSE, warning = FALSE}
-# intra.df.ft <- flextable(intra.df)
-# intra.df.ft <- align(intra.df.ft, align = "right", part = "all")
-# intra.df.ft <- autofit(intra.df.ft)
-# intra.df.ft <- add_footer_lines(intra.df.ft, "")
-# intra.df.ft |> bg(bg = "grey", part = "header")
-
-```
-  
-
-```{r inter_assay_table, echo = FALSE, eval=FALSE, message = FALSE, warning = FALSE}
-# inter.df.ft <- flextable(inter.df)
-# inter.df.ft <- align(inter.df.ft, align = "right", part = "all")
-# inter.df.ft <- autofit(inter.df.ft)
-# inter.df.ft |> bg(bg = "grey", part = "header")
-
-```
 
 
 ## Korrelation
