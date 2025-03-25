@@ -243,6 +243,15 @@ write_excel_csv(Randox_immuno, "Randox_immuno.csv")
 # manually filled in information from Randox & BCI package inserts & from www.Qualab.ch
 qualab.BCI.randox.data <- read_excel("qualabBCIRANDOX.xlsx") 
 
+# transpose columns "L1_Mean", "L1_SD", "L2_Mean", "L2_SD", "L3_Mean", "L3_SD" to long format
+qualab.BCI.randox.data <- qualab.BCI.randox.data |> 
+  pivot_longer(
+    cols = c(L1_Mean, L1_SD, L2_Mean, L2_SD, L3_Mean, L3_SD),
+    names_to = c("Level", ".value"),
+    names_pattern = "L(\\d+)_(.*)"
+  )
+
+
 
 
 col.types <- map.data.types(qualab.BCI.randox.data)
@@ -260,6 +269,9 @@ create.table.statement <- paste0("CREATE TABLE IF NOT EXISTS QBRData (",
 
 # connect to SQLite DB
 # con <- dbConnect(SQLite(), dbname = "C:/R_local/labStat/ClinicalChemistry_2.db")
+
+# drop table QBRData
+dbExecute(con, "DROP TABLE IF EXISTS QBRData")
 
 # create the table in the SQLite DB
 dbExecute(con, create.table.statement)
