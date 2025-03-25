@@ -374,7 +374,8 @@ if(!is.null(ft$intra)){
 prc.L.data.wide <- prc.L.data |> 
   arrange(Date) |>
   group_by(Date) %>%
-  mutate(row_id = row_number()) %>%
+  mutate(row_id = row_number(),
+         DoseResult = round(DoseResult,2)) %>%
   select(Date, DoseResult, row_id) %>%
   pivot_wider(
     names_from = Date,
@@ -395,7 +396,8 @@ prc.L.data.wide
 prc.H.data.wide <- prc.H.data |> 
   arrange(Date) |>
   group_by(Date) %>%
-  mutate(row_id = row_number()) %>%
+  mutate(row_id = row_number(),
+         DoseResult = round(DoseResult,2)) %>%
   select(Date, DoseResult, row_id) %>%
   pivot_wider(
     names_from = Date,
@@ -417,7 +419,7 @@ prc.H.data.wide
 #   }
 ```
 
-
+\newpage
 
 ## Korrelation
 
