@@ -149,7 +149,7 @@ table.one |>
 
 ## Präzision
 
-```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = FALSE, warning=FALSE}
+```{r intra_and_inter_assay_coefficient_of_variability, echo = FALSE, message = TRUE, warning=FALSE}
 library(tidyverse)
 library(flextable)
 
@@ -210,14 +210,24 @@ prc.L.data <- dbGetQuery(con, query.L) |>
          maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
   filter(Date <= maxDate & Date >= minDate)
 
-prc.L.data <- get_recent_data(prc.L.data, "^QC")
+prc.L.data <- tryCatch({
+  get_recent_data(prc.L.data, "^QC")
+}, error = function(e) {
+  print(e)
+  prc.L.data
+})
 
 prc.H.data <- dbGetQuery(con, query.H)|> 
   mutate(Date = as.Date(TestCompleteDT, format = "%m-%d-%Y"),
          maxDate = as.Date(maxDate, format = "%Y-%m-%d")) |> 
   filter(Date <= maxDate & Date >= minDate)
 
-prc.H.data <- get_recent_data(prc.H.data, "^QC")
+prc.H.data <- tryCatch({
+  get_recent_data(prc.H.data, "^QC")
+}, error = function(e) {
+  print(e)
+  prc.H.data
+})
 
 
 # define data processing function----------------------------------------
@@ -247,6 +257,18 @@ prc.H.data <- get_recent_data(prc.H.data, "^QC")
 # }
 
 prc.table.fun <- function(prc.L.data, prc.H.data){
+  
+  # Prüfe, ob prc.L.data genügend Zeilen hat
+  if (is.null(prc.L.data) || nrow(prc.L.data) < 25) {
+    warning("prc.L.data hat nicht genügend Daten (mindestens 25 Zeilen erforderlich).")
+    return(NULL)
+  }
+  
+  # Prüfe, ob prc.H.data genügend Zeilen hat
+  if (is.null(prc.H.data) || nrow(prc.H.data) < 25) {
+    warning("prc.H.data hat nicht genügend Daten (mindestens 25 Zeilen erforderlich).")
+    return(NULL)
+  }
  
     # building the CLSIEP15 table
     L.long <- data.frame(
@@ -371,6 +393,10 @@ if(!is.null(ft$intra)){
 
 #### L1 Rohdaten
 ```{r intra_and_inter_assay_L_data, echo = FALSE, message = FALSE, warning=FALSE}
+if (is.null(prc.L.data) || nrow(prc.L.data) == 0) {
+  prc.L.data.wide <- flextable(data.frame(Message = "Keine Daten verfügbar"))
+} else {
+
 prc.L.data.wide <- prc.L.data |> 
   arrange(Date) |>
   group_by(Date) %>%
@@ -388,11 +414,18 @@ prc.L.data.wide <- prc.L.data |>
       autofit()|>
       add_footer_lines("")|>
       bg(bg = "grey", part = "header")
+
+}
+
 prc.L.data.wide
 ```
 
 #### L2 Rohdaten
 ```{r intra_and_inter_assay_H_data, echo = FALSE, message = FALSE, warning=FALSE}
+if (is.null(prc.H.data) || nrow(prc.H.data) == 0) {
+  prc.H.data.wide <- flextable(data.frame(Message = "Keine Daten verfügbar"))
+} else {
+
 prc.H.data.wide <- prc.H.data |> 
   arrange(Date) |>
   group_by(Date) %>%
@@ -410,6 +443,8 @@ prc.H.data.wide <- prc.H.data |>
       autofit()|>
       add_footer_lines("")|>
       bg(bg = "grey", part = "header")
+
+}
 prc.H.data.wide
 
 # if(!is.null(ft$inter)){
