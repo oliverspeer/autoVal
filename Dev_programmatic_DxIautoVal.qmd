@@ -1,0 +1,100 @@
+---
+title: "Dev_programmatic_DxIautoVal"
+format: html
+editor: visual
+---
+
+```{r, message=FALSE, warning=FALSE}
+library(tidyverse)
+library(glue)
+library(gapminder)
+
+gapminder_2007 <- gapminder |> filter(year == 2007)
+
+continents <- gapminder_2007 |> 
+  distinct(continent) |> 
+  pull(continent)
+
+cat(paste0("- ", continents, collapse = "\n"))
+```
+```{r, message=FALSE, warning=FALSE}
+#| results: asis
+cat(paste0("- ", continents, collapse = "\n"))
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+pi_stuff <- tibble(digits = 1:5) |> 
+  mutate(list_element = paste0("- `r round(pi, ", digits, ")`"))
+
+```
+
+In einem Text kann r-code eingepflegt werden:
+
+`r knitr::knit(text = paste0(pi_stuff$list_element, collapse = "\n"))`
+
+die Elemente aus der Liste werden korrekt gerendert und in den Text eingefügt.
+Es geht auch als code chunk mit "asis", dann ohne "'" bei den Elementen in der Liste:
+
+```{r}
+#| results: asis
+pi_stuff_easier <- tibble(digits = 1:5) |> 
+  mutate(list_element = paste0("- ", round(pi, digits)))
+
+cat(paste0(pi_stuff_easier$list_element, collapse = "\n"))
+```
+```{r, message=FALSE, warning=FALSE}
+continent_plots <- gapminder_2007 |> 
+  group_by(continent) |> 
+  nest() |> 
+  ungroup() |>
+  mutate(plot = pmap(
+    lst(data, continent),
+    \(data, continent) {
+        plot_title <- paste0("Health and Wealth in ", continent)
+        ggplot(data, aes(x = gdpPercap, y = lifeExp)) +
+        geom_point() +
+        scale_x_log10(labels = scales::label_currency(accuracy = 1)) +
+        labs(title = plot_title)  
+    }))
+continent_plots
+continent_plots$plot[[3]]
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+fun_bld_panel <- function(panel_title, plot_index){
+  chunk_label <- glue("panel-continent-{title}", title = janitor::make_clean_names(panel_title))
+  
+  output <- glue("
+  ### <<panel_title>>   
+  
+  ```{r}
+  #| label <<chunk_label>>
+  #| echo : false
+  continent_plots$plot[[<<plot_index>>]]
+  ```", .open = "<<", .close = ">>")
+  
+  output
+} 
+
+continent_plots_with_text <- continent_plots |> 
+  mutate(row = row_number()) |>
+  mutate(markdown = pmap_chr(
+    lst(continent, row),
+    \(continent, row) {
+      fun_bld_panel(continent, row)
+    }))
+
+
+```
+
+Gesundheit und Wohlstand hängen auf jedem Kontinent zusammen.
+
+::: {.panel-tabset}
+
+`r knitr::knit(text = paste0(continent_plots_with_text$markdown, collapse = "\n\n"))`
+
+:::
+
+Automatic tabset!
