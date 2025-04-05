@@ -4,97 +4,153 @@ format: html
 editor: visual
 ---
 
-```{r, message=FALSE, warning=FALSE}
-library(tidyverse)
-library(glue)
-library(gapminder)
-
-gapminder_2007 <- gapminder |> filter(year == 2007)
-
-continents <- gapminder_2007 |> 
-  distinct(continent) |> 
-  pull(continent)
-
-cat(paste0("- ", continents, collapse = "\n"))
-```
-```{r, message=FALSE, warning=FALSE}
-#| results: asis
-cat(paste0("- ", continents, collapse = "\n"))
+```{r, startup, message=FALSE, warning=FALSE}
+source("StartUp.R")
+StartUpRoutine()
 ```
 
+```{r, loaddata, message=FALSE, warning=FALSE}
+# Alle TestName-Werte abrufen
+test_data <- dbGetQuery(con, "
+  SELECT DISTINCT 
+    d.TestName AS Analyt, 
+    CAST(md.Werte AS REAL) AS DxI800, 
+    CAST(d.DoseResult_c AS REAL) AS DxI9000
+  FROM MeasurementData md
+  --JOIN MethodData m USING (Methode)
+  JOIN TranslationData t USING (Methode)
+  JOIN DxIvalData d USING (TestOrderCode)
+  WHERE d.Probennummer = md.Probennummer
+    AND d.DoseResult <> 'No result';")
 
-```{r, message=FALSE, warning=FALSE}
-pi_stuff <- tibble(digits = 1:5) |> 
-  mutate(list_element = paste0("- `r round(pi, ", digits, ")`"))
-
+# Sicherstellen, dass die Werte numerisch sind
+test_data <- test_data |> 
+  mutate(DxI800 = as.numeric(DxI800), DxI9000 = as.numeric(DxI9000)) |> 
+  na.omit()
 ```
 
-In einem Text kann r-code eingepflegt werden:
-
-`r knitr::knit(text = paste0(pi_stuff$list_element, collapse = "\n"))`
-
-die Elemente aus der Liste werden korrekt gerendert und in den Text eingefügt.
-Es geht auch als code chunk mit "asis", dann ohne "'" bei den Elementen in der Liste:
-
-```{r}
-#| results: asis
-pi_stuff_easier <- tibble(digits = 1:5) |> 
-  mutate(list_element = paste0("- ", round(pi, digits)))
-
-cat(paste0(pi_stuff_easier$list_element, collapse = "\n"))
-```
-```{r, message=FALSE, warning=FALSE}
-continent_plots <- gapminder_2007 |> 
-  group_by(continent) |> 
+```{r, backend, message=FALSE, warning=FALSE}
+val_dat <- test_data |> 
+  group_by(Analyt) |> 
   nest() |> 
-  ungroup() |>
-  mutate(plot = pmap(
-    lst(data, continent),
-    \(data, continent) {
-        plot_title <- paste0("Health and Wealth in ", continent)
-        ggplot(data, aes(x = gdpPercap, y = lifeExp)) +
+  ungroup() |> 
+  mutate(
+    plot = pmap(
+      lst(data, Analyt),
+      \(data, Analyt) {
+        plot_title <- paste0("Test: ", Analyt)
+        ggplot(data, aes(x = DxI800, y = DxI9000)) +
         geom_point() +
-        scale_x_log10(labels = scales::label_currency(accuracy = 1)) +
-        labs(title = plot_title)  
-    }))
-continent_plots
-continent_plots$plot[[3]]
+        geom_smooth(method = "lm") +
+        labs(title = plot_title) +
+        theme_minimal()
+    }),
+    PBreg = pmap(
+      lst(data),
+      \(data) {
+        if (nrow(data) < 3) {
+          return(NULL)
+        } else {
+        method.x <- data$DxI800
+        method.y <- data$DxI9000
+        PBreg <- mcreg(method.x, method.y, method.reg = "PaBa")
+        PBreg@mnames[1] <- colnames(data)[1]
+        PBreg@mnames[2] <- colnames(data)[2]
+        return(PBreg)
+        }
+      }
+    )
+  )
+  
+
+
 ```
 
 
-```{r, message=FALSE, warning=FALSE}
-fun_bld_panel <- function(panel_title, plot_index){
-  chunk_label <- glue("panel-continent-{title}", title = janitor::make_clean_names(panel_title))
-  
-  output <- glue("
-  ### <<panel_title>>   
-  
+```{r, panelbuilding}
+#| message: false
+#| warning: false
+
+build_val_report <- function(i){
+  name_for_labels <- janitor::make_clean_names(val_dat$Analyt[[i]])
+
+    output_first_part <- glue('
+  ### `r val_dat$Analyt[[<<i>>]]`
+
+    ', .open = "<<", .close = ">>")
+
+
+
+  output_panel_plot <- glue('
+  #### Scatter-Plot
+
   ```{r}
-  #| label <<chunk_label>>
-  #| echo : false
-  continent_plots$plot[[<<plot_index>>]]
-  ```", .open = "<<", .close = ">>")
+  #| label: plot-summary-<<name_for_labels>>
+  #| echo: false
+
+  val_dat$plot[[<<i>>]]
+  ```', .open = "<<", .close = ">>")
   
-  output
-} 
+    output_panel_paba <- glue('
+  #### Passing Bablok
 
-continent_plots_with_text <- continent_plots |> 
-  mutate(row = row_number()) |>
-  mutate(markdown = pmap_chr(
-    lst(continent, row),
-    \(continent, row) {
-      fun_bld_panel(continent, row)
-    }))
+  ```{r}
+  #| label: plot-paba-<<name_for_labels>>
+  #| echo: false
+  if (is.null(val_dat$PBreg[[<<i>>]])) {
+    cat("Not enough data for Passing Bablok regression.")
+  } else {
+      plot_title <- paste0("Test: ", val_dat$Analyt[[<<i>>]])
+      MCResult.plot(val_dat$PBreg[[<<i>>]],
+                  equal.axis = TRUE,
+                  points.col = "#68228B", 
+                  points.pch = 19, ci.area = TRUE, 
+                  ci.area.col = "#0000FF50", 
+                  main = plot_title, 
+                  sub = "", 
+                  add.cor = TRUE, 
+                  cor.method = "spearman", 
+                  add.grid = FALSE, 
+                  points.cex = 1)
+                  
+      ##Angabe Steigung und Achsenabschnitt und CI
+      intercept_est <- val_dat$PBreg[[<<i>>]]@para[1]
+      intercept_lci <- val_dat$PBreg[[<<i>>]]@para[5]
+      intercept_uci <- val_dat$PBreg[[<<i>>]]@para[7]
+      gradient_est <- val_dat$PBreg[[<<i>>]]@para[2]
+      gradient_lci <- val_dat$PBreg[[<<i>>]]@para[6]
+      gradient_uci <- val_dat$PBreg[[<<i>>]]@para[8]
+      alpha_ci <- val_dat$PBreg[[<<i>>]]@alpha[1]
+      text(cex=.65,
+      x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
+      text(cex=.65,x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
+      text(cex=.65,x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.35, sprintf("alpha : %4.2f", alpha_ci))
+            
+  }
+  ```', .open = "<<", .close = ">>")
 
+  # Combine all the pieces
+  output <- glue('
+  {output_first_part}
 
+  ::: {{.panel-tabset}}
+  {output_panel_plot}
+
+  {output_panel_paba}
+  :::')
+}
 ```
 
-Gesundheit und Wohlstand hängen auf jedem Kontinent zusammen.
+```{r, valreports}
+#| message: false
+#| warning: false
 
-::: {.panel-tabset}
+val_reports <- map_chr(
+  seq_len(nrow(val_dat)), 
+  \(i) build_val_report(i)
+)
+```
 
-`r knitr::knit(text = paste0(continent_plots_with_text$markdown, collapse = "\n\n"))`
+## Validation reports
 
-:::
-
-Automatic tabset!
+`r knitr::knit(text = paste0(val_reports, collapse = "\n\n"))`
