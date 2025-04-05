@@ -269,6 +269,7 @@ val_dat <- val_dat |>
 
 
 ```{r, panelbuilding}
+#| label: build-panels
 #| message: false
 #| warning: false
 
