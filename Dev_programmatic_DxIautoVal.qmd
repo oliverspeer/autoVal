@@ -247,11 +247,10 @@ val_dat <- val_dat |>
     # Integrieren der summary_details aus sum.dat
     summary_details = map2(data, Analyt, ~ {
       data_summary <- data.frame(
-        n = as.character(nrow(.x),
+        n = as.character(nrow(.x)),
         Messbereich_min = as.character(min(.x$DxI9000, na.rm = TRUE)),
         Messbereich_max = as.character(max(.x$DxI9000, na.rm = TRUE))
         )
-      )
 
       sum_details <- sum.dat %>%
         filter(DxI9000 == .y) %>%
@@ -282,7 +281,20 @@ build_val_report <- function(i) {
   .open = "<<",
   .close = ">>")
   
+  output_panel_summary <- glue(
+    '
+  #### Summary
   
+  ```{r}
+  #| label: summary-<<name_for_labels>>
+  #| echo: false
+  
+  val_dat$summary_details[[<<i>>]] |> 
+    knitr::kable()
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
   
   output_panel_plot <- glue(
     '
@@ -386,6 +398,8 @@ build_val_report <- function(i) {
   {output_first_part}
 
   ::: {{.panel-tabset}}
+  {output_panel_summary}
+  
   {output_panel_plot}
 
   {output_panel_paba}
@@ -406,6 +420,6 @@ val_reports <- map_chr(
 )
 ```
 
-## Validation reports
+---
 
 `r knitr::knit(text = paste0(val_reports, collapse = "\n\n"))`
