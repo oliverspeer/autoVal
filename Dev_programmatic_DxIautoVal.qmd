@@ -1,17 +1,205 @@
 ---
-title: "Dev_programmatic_DxIautoVal"
-format: html
-editor: visual
+title: "DxI9000 Validations-Report"
+author: "Oliver Speer"
+date:   "`r Sys.Date()`"
+lang: de
+language: 
+  title-block-author-single: "Autor"
+  title-block-published: "Version vom"
+format: 
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    toc-title: "Jump to section"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+    fig-align: "center"
+    fig-caption: true
+    df-print: kable
+    highlight: "monochrome"
+    code-fold: true
+    code-tools: true
+editor: source
+website:
+  navbar:
+    logo: C:\\R_local\\labStat\\www\\logo_pos.png
 ---
 
-```{r, startup, message=FALSE, warning=FALSE}
+```{r}
+#| label: startup
+#| message: false
+#| warning: false
+
 source("StartUp.R")
 StartUpRoutine()
 ```
 
-```{r, loaddata, message=FALSE, warning=FALSE}
+```{r}
+#| label: SQLRIqueries
+#| echo: true
+#| message: false
+#| warning: false
+
 # Alle TestName-Werte abrufen
-test_data <- dbGetQuery(con, "
+RI_data <- dbGetQuery(con, "
+  SELECT DISTINCT 
+    d.TestName AS DxI9000, 
+    m.REF_L_M AS RI_L,
+    m.REF_H_M AS RI_H 
+  FROM MethodData m
+  JOIN TranslationData t USING (Methode)
+  JOIN DxIvalData d USING (TestOrderCode);
+")
+```
+
+```{r}
+#| label: SQLtargetqueries
+#| echo: true
+#| message: false
+#| warning: false
+
+
+VK_data <- dbGetQuery(con, "
+  SELECT DISTINCT 
+    d.TestName AS DxI9000, 
+    --q.'QUALAB_3S[%]', 
+    q.'BCI_VK[%]'
+  FROM QBRData q
+  JOIN DxIvalData d USING (TestName)
+  WHERE d.DoseResult <> 'No result';")
+
+```
+
+```{r}
+#| label: SQLqueriesVKsBias
+#| echo: true
+#| message: false
+#| warning: false
+
+
+library(CLSIEP15)
+
+# Alle benötigten Daten auf einmal abrufen
+query <- "
+    SELECT d.TestName AS DxI9000, 
+           d.TestCompleteDT, 
+           d.SampleID, 
+           q.Level,
+           CAST(d.DoseResult_c AS FLOAT) AS DoseResult, 
+           d.DoseUnit, 
+           d.Einheit_800, 
+           q.Zielwert, 
+           q.LotNr, 
+           q.maxDate, 
+           q.minDate
+    FROM DxIvalData d
+    JOIN TranslationData t ON d.TestOrderCode = t.TestOrderCode
+    JOIN QCData q ON q.Parameter = t.RemisolCode
+    WHERE d.DoseUnit IS NOT NULL;
+"
+
+# Datenbankabfrage ausführen
+all_data <- dbGetQuery(con, query) %>%
+  mutate(Date = as.Date(TestCompleteDT, "%m-%d-%Y"),
+         maxDate = as.Date(maxDate, "%Y-%m-%d"),
+         minDate = as.Date(minDate, "%Y-%m-%d")) %>%
+  filter(Date <= maxDate & Date >= minDate)
+
+# Funktion zur Berechnung von Präzisionsmetriken
+fun.calc.prc.metrics <- function(data) {
+  long_data <- data.frame(
+    rep = rep(1:5, each = 5),
+    name = paste(data$SampleID[1:25], rep(1:5, each = 5), sep = "_"),
+    value = data$DoseResult[1:25],
+    Zielwert = data$Zielwert[1:25]
+  )
+  calculate_aov_infos(long_data)
+}
+
+fun.calc.prc.data <- function(prc_data, data) {
+  calculate_bias_interval(
+    'E',
+    nrun = prc_data$N / prc_data$k,
+    nrep = prc_data$k,
+    SWL = prc_data$SWL,
+    SR = prc_data$SR,
+    nsamples = 2,
+    expected_mean = data$Zielwert[25],
+    user_mean = prc_data$mean
+  )
+}
+
+
+# Funktion zum Filtern und Verarbeiten der Daten für einen bestimmten TestName
+fun.process.qc.data <- function(test_name, data) {
+  test_data <- filter(data, DxI9000 == test_name)
+  
+  # Daten für Level 1 (L) und Level 2 (H) filtern
+  prc.L.data <- filter(test_data, Level == 1 & grepl("[a-zA-Z]+1", SampleID))
+  prc.H.data <- filter(test_data, Level == 2 & grepl("[a-zA-Z]+2", SampleID))
+  
+  # Mindestanzahl an Messungen prüfen
+  if (min(nrow(prc.L.data), nrow(prc.H.data)) < 25) {
+    warning(sprintf("Not enough data for %s. Skipping.", test_name))
+    return(NULL)
+  }
+  
+  # Berechnung von Präzisionsmetriken
+  prc.data.L <- fun.calc.prc.metrics(prc.L.data)
+  prc.data.H <- fun.calc.prc.metrics(prc.H.data)
+  
+  # Berechnung von Bias-Werten
+  bias.L <- fun.calc.prc.data(prc.data.L, prc.L.data)
+  bias.H <- fun.calc.prc.data(prc.data.H, prc.H.data)
+  
+  # Erstellung des Wide-Format DataFrames
+  data.frame(
+    DxI9000 = test_name,
+    `Intra_Assay_VK_L` = round(prc.data.L$CVR, 2),
+    `Inter_Assay_VK_L` = round(prc.data.L$CVWL, 2),
+    `bias.L` = round(bias.L$bias, 2),
+    `Intra_Assay_VK_H` = round(prc.data.H$CVR, 2),
+    `Inter_Assay_VK_H` = round(prc.data.H$CVWL, 2),
+    `bias.H` = round(bias.H$bias, 2)
+  )
+}
+
+# Verarbeitung der QC-Daten für alle TestNames
+qc_results <- bind_rows(Filter(Negate(is.null), lapply(unique(all_data$DxI9000), fun.process.qc.data, data = all_data)))
+
+
+```
+
+```{r}
+#| label: buildQCtable
+#| echo: true
+#| message: false
+#| warning: false
+
+
+sum.dat <- merge(RI_data, VK_data, by = "DxI9000", all = TRUE)
+    #sum.dat <- merge(sum.dat, pb_results, by = "DxI9000", all = TRUE)
+    #sum.dat <- merge(sum.dat, VK_data, by = "DxI9000", all = TRUE)
+    sum.dat <- merge(sum.dat, qc_results, by = "DxI9000", all = TRUE)
+    sum.dat[is.na(sum.dat)] <- 0
+    sum.dat <- sum.dat[-3,] |> 
+      mutate(across(everything(), as.character))
+```
+
+
+
+```{r}
+#| label: loaddata
+#| echo: true
+#| message: false
+#| warning: false
+
+
+# Alle TestName-Werte abrufen
+val_dat <- dbGetQuery(con, "
   SELECT DISTINCT 
     d.TestName AS Analyt, 
     CAST(md.Werte AS REAL) AS DxI800, 
@@ -24,13 +212,9 @@ test_data <- dbGetQuery(con, "
     AND d.DoseResult <> 'No result';")
 
 # Sicherstellen, dass die Werte numerisch sind
-test_data <- test_data |> 
+val_dat <- val_dat |> 
   mutate(DxI800 = as.numeric(DxI800), DxI9000 = as.numeric(DxI9000)) |> 
-  na.omit()
-```
-
-```{r, backend, message=FALSE, warning=FALSE}
-val_dat <- test_data |> 
+  na.omit()|> 
   group_by(Analyt) |> 
   nest() |> 
   ungroup() |> 
@@ -59,7 +243,24 @@ val_dat <- test_data |>
         return(PBreg)
         }
       }
-    )
+    ),
+    # Integrieren der summary_details aus sum.dat
+    summary_details = map2(data, Analyt, ~ {
+      data_summary <- data.frame(
+        n = as.character(nrow(.x),
+        Messbereich_min = as.character(min(.x$DxI9000, na.rm = TRUE)),
+        Messbereich_max = as.character(max(.x$DxI9000, na.rm = TRUE))
+        )
+      )
+
+      sum_details <- sum.dat %>%
+        filter(DxI9000 == .y) %>%
+        select(-DxI9000) %>%
+        pivot_longer(everything(), names_to = "Statistik", values_to = "Werte")
+
+      bind_rows(pivot_longer(data_summary, everything(), names_to = "Statistik", values_to = "Werte"), 
+                sum_details)
+    })
   )
   
 
@@ -71,17 +272,20 @@ val_dat <- test_data |>
 #| message: false
 #| warning: false
 
-build_val_report <- function(i){
+build_val_report <- function(i) {
   name_for_labels <- janitor::make_clean_names(val_dat$Analyt[[i]])
-
-    output_first_part <- glue('
+  
+  output_first_part <- glue('
   ### `r val_dat$Analyt[[<<i>>]]`
 
-    ', .open = "<<", .close = ">>")
-
-
-
-  output_panel_plot <- glue('
+    ',
+  .open = "<<",
+  .close = ">>")
+  
+  
+  
+  output_panel_plot <- glue(
+    '
   #### Scatter-Plot
 
   ```{r}
@@ -89,9 +293,13 @@ build_val_report <- function(i){
   #| echo: false
 
   val_dat$plot[[<<i>>]]
-  ```', .open = "<<", .close = ">>")
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
   
-    output_panel_paba <- glue('
+  output_panel_paba <- glue(
+    '
   #### Passing Bablok
 
   ```{r}
@@ -101,18 +309,23 @@ build_val_report <- function(i){
     cat("Not enough data for Passing Bablok regression.")
   } else {
       plot_title <- paste0("Test: ", val_dat$Analyt[[<<i>>]])
+      
+      # Set up the layout for 3 plots side by side
+      # par(mfrow = c(1, 3))
+      
+      # First plot: Passing Bablok
       MCResult.plot(val_dat$PBreg[[<<i>>]],
                   equal.axis = TRUE,
-                  points.col = "#68228B", 
-                  points.pch = 19, ci.area = TRUE, 
-                  ci.area.col = "#0000FF50", 
-                  main = plot_title, 
-                  sub = "", 
-                  add.cor = TRUE, 
-                  cor.method = "spearman", 
-                  add.grid = FALSE, 
+                  points.col = "#68228B",
+                  points.pch = 19, ci.area = TRUE,
+                  ci.area.col = "#0000FF50",
+                  main = plot_title,
+                  sub = "",
+                  add.cor = TRUE,
+                  cor.method = "spearman",
+                  add.grid = FALSE,
                   points.cex = 1)
-                  
+
       ##Angabe Steigung und Achsenabschnitt und CI
       intercept_est <- val_dat$PBreg[[<<i>>]]@para[1]
       intercept_lci <- val_dat$PBreg[[<<i>>]]@para[5]
@@ -122,22 +335,64 @@ build_val_report <- function(i){
       gradient_uci <- val_dat$PBreg[[<<i>>]]@para[8]
       alpha_ci <- val_dat$PBreg[[<<i>>]]@alpha[1]
       text(cex=.65,
-      x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.49,sprintf("Gradient : %4.2f (%4.2f - %4.2f)", gradient_est, gradient_lci, gradient_uci))
-      text(cex=.65,x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.42,sprintf("Intercept : %4.2f (%4.2f - %4.2f)", intercept_est, intercept_lci, intercept_uci))
-      text(cex=.65,x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.35, sprintf("alpha : %4.2f", alpha_ci))
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.49,
+          sprintf("Gradient : %4.2f (%4.2f - %4.2f)", 
+            gradient_est, 
+            gradient_lci, 
+            gradient_uci))
+      text(cex=.65,
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.42,
+          sprintf("Intercept : %4.2f (%4.2f - %4.2f)", 
+            intercept_est, 
+            intercept_lci, 
+            intercept_uci))
+      text(cex=.65,
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.35, 
+          sprintf("alpha : %4.2f", 
+            alpha_ci))
             
-  }
-  ```', .open = "<<", .close = ">>")
+      fitPaBa <- mcreg(as.matrix(val_dat$data[[<<i>>]][,1:2]), method.reg="PaBa", na.rm=TRUE)
+      fitlr <- mcreg(as.matrix(val_dat$data[[<<i>>]][,1:2]), method.reg="LinReg", na.rm=TRUE)
+      
+      # Second and third plots: comparing intercetp and slope
+      compareFit(fitlr, fitPaBa)      
 
+  }
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  output_panel_blandaltman <- glue(
+    '
+  #### Bland-Altman
+  ```{r}
+  #| label: plot-blandaltman-<<name_for_labels>>
+  #| echo: false
+  if (is.null(val_dat$PBreg[[<<i>>]])) {
+    cat("Not enough data for Bland-Altman plot.")
+  } else {
+      MCResult.plotDifference(val_dat$PBreg[[<<i>>]], main = plot_title)
+      MCResult.plotDifference(val_dat$PBreg[[<<i>>]], plot.type = 8, main = paste("rel Difference plot", plot_title))
+  }
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
   # Combine all the pieces
-  output <- glue('
+  output <- glue(
+    '
   {output_first_part}
 
   ::: {{.panel-tabset}}
   {output_panel_plot}
 
   {output_panel_paba}
-  :::')
+  
+  {output_panel_blandaltman}
+  :::'
+  )
 }
 ```
 
