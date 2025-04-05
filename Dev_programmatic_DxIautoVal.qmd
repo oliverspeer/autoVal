@@ -192,7 +192,7 @@ sum.dat <- merge(RI_data, VK_data, by = "DxI9000", all = TRUE)
 
 
 ```{r}
-#| label: loaddata
+#| label: build-backend
 #| echo: true
 #| message: false
 #| warning: false
@@ -217,6 +217,7 @@ val_dat <- val_dat |>
   na.omit()|> 
   group_by(Analyt) |> 
   nest() |> 
+  arrange(Analyt) |>
   ungroup() |> 
   mutate(
     plot = pmap(
@@ -248,8 +249,8 @@ val_dat <- val_dat |>
     summary_details = map2(data, Analyt, ~ {
       data_summary <- data.frame(
         n = as.character(nrow(.x)),
-        Messbereich_min = as.character(min(.x$DxI9000, na.rm = TRUE)),
-        Messbereich_max = as.character(max(.x$DxI9000, na.rm = TRUE))
+        Messbereich_min = as.character(round(min(.x$DxI9000, na.rm = TRUE), 2)),
+        Messbereich_max = as.character(round(max(.x$DxI9000, na.rm = TRUE), 2))
         )
 
       sum_details <- sum.dat %>%
