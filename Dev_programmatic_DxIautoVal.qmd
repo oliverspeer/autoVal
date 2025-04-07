@@ -32,6 +32,7 @@ website:
 #| label: startup
 #| message: false
 #| warning: false
+#| echo: false
 
 source("StartUp.R")
 StartUpRoutine()
@@ -39,11 +40,11 @@ StartUpRoutine()
 
 ```{r}
 #| label: SQLRIqueries
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
-# Alle TestName-Werte abrufen
+# Abfrage für Referenzintervalle
 RI_data <- dbGetQuery(con, "
   SELECT DISTINCT 
     d.TestName AS DxI9000, 
@@ -52,16 +53,26 @@ RI_data <- dbGetQuery(con, "
   FROM MethodData m
   JOIN TranslationData t USING (Methode)
   JOIN DxIvalData d USING (TestOrderCode);
-")
+")  |>
+  rowwise() |>
+  mutate(
+    Referenzintervall = case_when(
+      is.na(RI_L) & is.na(RI_H) ~ "",                      # Beide NA -> leer
+      RI_L == "<" ~ paste0(RI_L, RI_H),                    # RI_L ist "<" -> keine "-"
+      TRUE ~ paste0(RI_L, " - ", RI_H)                     # Sonst -> mit "-"
+    )
+  ) |>
+  ungroup() |>
+  select(-RI_L, -RI_H)
 ```
 
 ```{r}
 #| label: SQLtargetqueries
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
-
+# Abfrage für VKData
 VK_data <- dbGetQuery(con, "
   SELECT DISTINCT 
     d.TestName AS DxI9000, 
@@ -75,14 +86,14 @@ VK_data <- dbGetQuery(con, "
 
 ```{r}
 #| label: SQLqueriesVKsBias
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
 
-library(CLSIEP15)
-
-# Alle benötigten Daten auf einmal abrufen
+# Abfrage für QCData
+# QCData enthält die QC-Parameter und deren Zielwerte
+# VKs werden nach der 5X5 CLSI-Empfehlung bestimmt
 query <- "
     SELECT d.TestName AS DxI9000, 
            d.TestCompleteDT, 
@@ -175,11 +186,11 @@ qc_results <- bind_rows(Filter(Negate(is.null), lapply(unique(all_data$DxI9000),
 
 ```{r}
 #| label: buildQCtable
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
-
+# Zusammenführen der Daten
 sum.dat <- merge(RI_data, VK_data, by = "DxI9000", all = TRUE)
     #sum.dat <- merge(sum.dat, pb_results, by = "DxI9000", all = TRUE)
     #sum.dat <- merge(sum.dat, VK_data, by = "DxI9000", all = TRUE)
@@ -193,25 +204,33 @@ sum.dat <- merge(RI_data, VK_data, by = "DxI9000", all = TRUE)
 
 ```{r}
 #| label: build-backend
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 
 
-# Alle TestName-Werte abrufen
+# Aufbau der Backend-Liste, die die Daten für die Panels enthält
 val_dat <- dbGetQuery(con, "
-  SELECT DISTINCT 
-    d.TestName AS Analyt, 
-    CAST(md.Werte AS REAL) AS DxI800, 
-    CAST(d.DoseResult_c AS REAL) AS DxI9000
+  SELECT DISTINCT
+    d.TestName AS Analyt,
+    CAST(md.Werte AS REAL) AS DxI800,
+    MAX(d.DoseResult_c) AS DxI9000,
+    d.Probennummer,
+    m.EINHEIT AS Einheit
   FROM MeasurementData md
-  --JOIN MethodData m USING (Methode)
+  JOIN MethodData m USING (Methode)
   JOIN TranslationData t USING (Methode)
-  JOIN DxIvalData d USING (TestOrderCode)
-  WHERE d.Probennummer = md.Probennummer
-    AND d.DoseResult <> 'No result';")
+  JOIN DxIvalData d ON d.TestOrderCode = t.TestOrderCode AND d.Probennummer = md.Probennummer
+  WHERE d.DoseResult <> 'No result'
+  GROUP BY d.TestName, md.Werte, d.Probennummer, m.EINHEIT;
+  ")
 
 # Sicherstellen, dass die Werte numerisch sind
+# Gruppieren, Nesting, ggplot der x-y-Daten
+# PaBa Regression mit mcreg
+# und Ausgabe der Ergebnisse in die Backend-Liste
+# Zusammenstellen der Summary-Statistiken
+
 val_dat <- val_dat |> 
   mutate(DxI800 = as.numeric(DxI800), DxI9000 = as.numeric(DxI9000)) |> 
   na.omit()|> 
@@ -249,13 +268,17 @@ val_dat <- val_dat |>
     summary_details = map2(data, Analyt, ~ {
       data_summary <- data.frame(
         n = as.character(nrow(.x)),
-        Messbereich_min = as.character(round(min(.x$DxI9000, na.rm = TRUE), 2)),
-        Messbereich_max = as.character(round(max(.x$DxI9000, na.rm = TRUE), 2))
+        #Messbereich_min = as.character(round(min(.x$DxI9000, na.rm = TRUE), 2)),
+        Messbereich = paste(
+          as.character(round(min(.x$DxI9000, na.rm = TRUE), 2)),
+          " - ", 
+          as.character(round(max(.x$DxI9000, na.rm = TRUE), 2))
+          )
         )
 
-      sum_details <- sum.dat %>%
-        filter(DxI9000 == .y) %>%
-        select(-DxI9000) %>%
+      sum_details <- sum.dat  |> 
+        filter(DxI9000 == .y) |> 
+        select(-DxI9000) |> 
         pivot_longer(everything(), names_to = "Statistik", values_to = "Werte")
 
       bind_rows(pivot_longer(data_summary, everything(), names_to = "Statistik", values_to = "Werte"), 
@@ -272,7 +295,9 @@ val_dat <- val_dat |>
 #| label: build-panels
 #| message: false
 #| warning: false
+#| echo: false
 
+# Funktion zum Erstellen der Panels
 build_val_report <- function(i) {
   name_for_labels <- janitor::make_clean_names(val_dat$Analyt[[i]])
   
@@ -415,7 +440,9 @@ build_val_report <- function(i) {
 ```{r, valreports}
 #| message: false
 #| warning: false
+#| echo: false
 
+# Generierung der Panels
 val_reports <- map_chr(
   seq_len(nrow(val_dat)), 
   \(i) build_val_report(i)
@@ -425,3 +452,31 @@ val_reports <- map_chr(
 ---
 
 `r knitr::knit(text = paste0(val_reports, collapse = "\n\n"))`
+
+---
+
+**Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
+
+--- 
+
+## Appendix
+Data is processed using R language^1^, DBI^2^, RSQLite^3^, tidyverse^4^, mcr package^5^, CLSIEP15^6^ and flextable package^7^. glue^8^, knitr^9^ and quarto^10^ are used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^11^, Burak Bahar (Washington, USA)^12^, David Gohel (Roubaix, F)^13^ and Andrew Heiss (Georgia State University, USA)^14^.
+  
+### References and packages
+  
+1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
+2. DBI: R Database Interface. Version: `r packageDescription("DBI")$Version` URL: <http://CRAN.R-project.org/package=DBI>
+3. RSQLite: SQLite Interface for R. Version: `r packageDescription("RSQLite")$Version` URL: <http://CRAN.R-project.org/package=RSQLite>
+4.  tidyverse: Easily Install and Load the 'Tidyverse'. Version: `r packageDescription("tidyverse")$Version` URL: <http://CRAN.R-project.org/package=tidyverse>
+5.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
+6.  CLSIEP15: Clinical and Laboratory Standards Institute (CLSI) EP15-A3 Calculations. Version: `r packageDescription("CLSIEP15")$Version` URL: <http://CRAN.R-project.org/package=CLSIEP15>
+7.  flextable: a framework for easily creating tables. Version: `r packageDescription("flextable")$Version` URL: <http://CRAN.R-project.org/package=flextable>
+8.  glue: Interpreted String Literals. Version: `r packageDescription("glue")$Version` URL: <http://CRAN.R-project.org/package=glue>
+9.  knitr: A General-Purpose Package for Dynamic Report Generation in R. Version: `r packageDescription("knitr")$Version` URL: <http://yihui.org/knitr>
+10.  quarto: Quarto: Open-Source Scientific and Technical Publishing System. Version: `r packageDescription("quarto")$Version` URL: <https://quarto.org>
+11.  The Lab-R-torian: URL: <https://labrtorian.com/>
+12.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+13.  SOLUTIONS ET FORMATIONS EN DATA-SCIENCE: URL: <https://www.ardata.fr/>
+14. Heiss, Andrew. 2024. “Guide to Generating and Rendering Computational Markdown Content Programmatically with Quarto.” November 4, 2024. URL: <https://doi.org/10.59350/pa44j-cc302> 
+
+---
