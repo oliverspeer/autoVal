@@ -215,8 +215,8 @@ val_dat <- dbGetQuery(con, "
     d.TestName AS Analyt,
     CAST(md.Werte AS REAL) AS DxI800,
     MAX(d.DoseResult_c) AS DxI9000,
-    d.Probennummer,
-    m.EINHEIT AS Einheit
+    m.EINHEIT AS Einheit,
+    d.Probennummer
   FROM MeasurementData md
   JOIN MethodData m USING (Methode)
   JOIN TranslationData t USING (Methode)
@@ -232,7 +232,12 @@ val_dat <- dbGetQuery(con, "
 # Zusammenstellen der Summary-Statistiken
 
 val_dat <- val_dat |> 
-  mutate(DxI800 = as.numeric(DxI800), DxI9000 = as.numeric(DxI9000)) |> 
+  mutate(
+    DxI800 = as.numeric(DxI800), 
+    DxI9000 = as.numeric(DxI9000),
+    Delta = round((100-DxI800*100/DxI9000), 1)
+           ) |> 
+  select(Analyt, DxI800, DxI9000, Einheit, Delta, Probennummer) |>
   na.omit()|> 
   group_by(Analyt) |> 
   nest() |> 
@@ -419,6 +424,31 @@ build_val_report <- function(i) {
   .close = ">>"
   )
   
+  output_panel_datatable <- glue(
+    '
+  #### Messdaten
+  ```{r}
+  #| label: data-<<name_for_labels>>
+  #| echo: false
+  #| message: false
+  #| warning: false
+  
+  val_dat$data[[<<i>>]] |> 
+    mutate(DxI800 = round(DxI800, 2),
+           DxI9000 = round(DxI9000, 2)) |>
+    arrange(Probennummer) |>
+    flextable() |>  
+    theme_vanilla() |>  
+    bg(bg = "grey", part = "header") |> 
+    align(align = "center", part = "all") |> 
+    bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
+    set_table_properties(width = 0.6, layout = "autofit")
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  
   # Combine all the pieces
   output <- glue(
     '
@@ -432,6 +462,8 @@ build_val_report <- function(i) {
   {output_panel_paba}
   
   {output_panel_blandaltman}
+  
+  {output_panel_datatable}
   :::'
   )
 }
