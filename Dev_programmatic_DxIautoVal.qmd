@@ -34,6 +34,8 @@ website:
 #| warning: false
 #| echo: false
 
+source("fun_recent_QCData_CLSI.R")
+source("fun_wide_QCData_CLSI.R")
 source("StartUp.R")
 StartUpRoutine()
 ```
@@ -94,12 +96,13 @@ VK_data <- dbGetQuery(con, "
 # Abfrage für QCData
 # QCData enthält die QC-Parameter und deren Zielwerte
 # VKs werden nach der 5X5 CLSI-Empfehlung bestimmt
+
 query <- "
     SELECT d.TestName AS DxI9000, 
            d.TestCompleteDT, 
            d.SampleID, 
            q.Level,
-           CAST(d.DoseResult_c AS FLOAT) AS DoseResult, 
+           CAST(d.DoseResult_c AS REAL) AS DoseResult, 
            d.DoseUnit, 
            d.Einheit_800, 
            q.Zielwert, 
@@ -118,6 +121,59 @@ all_data <- dbGetQuery(con, query) %>%
          maxDate = as.Date(maxDate, "%Y-%m-%d"),
          minDate = as.Date(minDate, "%Y-%m-%d")) %>%
   filter(Date <= maxDate & Date >= minDate)
+
+# Hilfsfunktion, die für einen bestimmten Level die aktuellsten Daten auswählt
+# – Es werden nur Daten aus Tagen berücksichtigt, an denen mindestens 5 Messungen vorliegen.
+# – Es werden so viele Zeilen akkumuliert, bis mindestens 25 Messungen vorliegen.
+get_recent_data <- function(df, level_pattern) {
+  # Filtere nach dem Pattern (z.B. "[a-zA-Z]+1" oder "[a-zA-Z]+2")
+  df <- df %>% 
+    filter(grepl(level_pattern, SampleID))
+  
+  # Gruppieren nach Datum und nur Gruppen behalten, die mindestens 5 Messungen haben
+  df <- df %>%
+    group_by(Date) %>%
+    filter(n() >= 5) %>%
+    ungroup()
+  
+  # Sortiere absteigend nach Datum (also aktuellste zuerst)
+  df <- df %>% arrange(desc(Date))
+  
+  # Akkumulieren der Zeilen anhand der aktuellsten Datumsgruppen, bis mindestens 25 Zeilen erreicht sind
+  dates_ordered <- unique(df$Date)
+  selected <- data.frame()
+  for (d in dates_ordered) {
+    group_data <- df %>% filter(Date == d)
+    selected <- bind_rows(selected, group_data)
+    if (nrow(selected) >= 25) break
+  }
+  
+  # Falls nach dem Akkumulieren weniger als 25 Zeilen vorhanden sind, wird NULL zurückgegeben
+  if (nrow(selected) < 25) {
+    return(NULL)
+  }
+  
+  # Falls mehr als 25 Zeilen vorhanden sind: Versuche, aus der letzten (am wenigsten aktuellen) Gruppe
+  # so viele Zeilen zu entfernen, dass am Ende genau 25 Zeilen vorliegen,
+  # ohne dass aus diesem Datum weniger als 5 Zeilen verbleiben.
+  if (nrow(selected) > 25) {
+    last_date <- tail(unique(selected$Date), 1)
+    group_last <- selected %>% filter(Date == last_date)
+    excess <- nrow(selected) - 25
+    if ((nrow(group_last) - excess) >= 5) {
+      selected <- bind_rows(
+        selected %>% filter(Date != last_date),
+        group_last %>% slice(1:(nrow(group_last) - excess))
+      )
+    } else {
+      # Falls ein Trimmen den letzten Tag unter 5 Messungen bringen würde,
+      # werden einfach die ersten 25 Zeilen genommen.
+      selected <- selected %>% slice(1:25)
+    }
+  }
+  
+  return(selected)
+}
 
 # Funktion zur Berechnung von Präzisionsmetriken
 fun.calc.prc.metrics <- function(data) {
@@ -149,11 +205,18 @@ fun.process.qc.data <- function(test_name, data) {
   test_data <- filter(data, DxI9000 == test_name)
   
   # Daten für Level 1 (L) und Level 2 (H) filtern
-  prc.L.data <- filter(test_data, Level == 1 & grepl("[a-zA-Z]+1", SampleID))
-  prc.H.data <- filter(test_data, Level == 2 & grepl("[a-zA-Z]+2", SampleID))
+  # prc.L.data <- filter(test_data, Level == 1 & grepl("[a-zA-Z]+1", SampleID)) |> 
+  #   arrange(desc(Date))
+  # prc.H.data <- filter(test_data, Level == 2 & grepl("[a-zA-Z]+2", SampleID)) |> 
+  #   arrange(desc(Date))
   
-  # Mindestanzahl an Messungen prüfen
-  if (min(nrow(prc.L.data), nrow(prc.H.data)) < 25) {
+   # Für Level 1 und Level 2: Daten zuerst nach Level filtern, dann die aktuellsten Daten gemäß get_recent_data auswählen
+  prc.L.data <- get_recent_data(test_data %>% filter(Level == 1), "[a-zA-Z]+1")
+  prc.H.data <- get_recent_data(test_data %>% filter(Level == 2), "[a-zA-Z]+2")
+  
+  # Prüfen, ob beide Levels gültige Daten (mindestens 25 Zeilen) liefern
+  if (is.null(prc.L.data) || is.null(prc.H.data) ||
+      nrow(prc.L.data) < 25 || nrow(prc.H.data) < 25) {
     warning(sprintf("Not enough data for %s. Skipping.", test_name))
     return(NULL)
   }
@@ -176,10 +239,32 @@ fun.process.qc.data <- function(test_name, data) {
     `Inter_Assay_VK_H` = round(prc.data.H$CVWL, 2),
     `bias.H` = round(bias.H$bias, 2)
   )
+  
+
 }
 
 # Verarbeitung der QC-Daten für alle TestNames
-qc_results <- bind_rows(Filter(Negate(is.null), lapply(unique(all_data$DxI9000), fun.process.qc.data, data = all_data)))
+#qc_results <- bind_rows(Filter(Negate(is.null), lapply(unique(all_data$DxI9000), fun.process.qc.data, data = all_data)))
+
+# Aufteilen der Daten in QC- und Rand-Samples anhand der SampleID
+all_data_qc <- all_data %>% filter(grepl("^QC", SampleID)) |> 
+  mutate(Date = as.character(Date))
+#all_data_rand <- all_data %>% filter(grepl("^Rand", SampleID))
+
+# Verarbeitung der QC-Daten
+qc_results <- bind_rows(
+  Filter(Negate(is.null), 
+         lapply(unique(all_data_qc$DxI9000), fun.process.qc.data, data = all_data_qc))
+)
+
+# Verarbeitung der Rand-Daten (verwende hier dieselbe Funktion, sofern die Verarbeitung analog erfolgen soll)
+#rand_results <- bind_rows(
+#  Filter(Negate(is.null), 
+#         lapply(unique(all_data_rand$DxI9000), fun.process.qc.data, data = all_data_rand))
+#)
+
+
+
 
 
 ```
@@ -243,6 +328,12 @@ val_dat <- val_dat |>
   nest() |> 
   arrange(Analyt) |>
   ungroup() |> 
+  rowwise() |>
+  mutate(
+    prc.L.raw.data = list(process_raw_data(Analyt, 1, "[a-zA-Z]+1")),
+    prc.H.raw.data = list(process_raw_data(Analyt, 2, "[a-zA-Z]+2"))
+  ) |> 
+  ungroup() |>
   mutate(
     plot = pmap(
       lst(data, Analyt),
@@ -269,6 +360,8 @@ val_dat <- val_dat |>
         }
       }
     ),
+    # Integrieren der QC-Messwerte aus all_data
+
     # Integrieren der summary_details aus sum.dat
     summary_details = map2(data, Analyt, ~ {
       data_summary <- data.frame(
@@ -344,7 +437,7 @@ build_val_report <- function(i) {
   
   output_panel_paba <- glue(
     '
-  #### Passing Bablok
+  #### Passing-Bablok
 
   ```{r}
   #| label: plot-paba-<<name_for_labels>>
@@ -447,6 +540,44 @@ build_val_report <- function(i) {
   .open = "<<",
   .close = ">>"
   )
+ 
+  output_panel_QCtable <- glue(
+    '
+  #### QC-Daten
+  ```{r}
+  #| label: QC-<<name_for_labels>>
+  #| echo: false
+  #| message: false
+  #| warning: false
+  
+  if (is.null(val_dat$prc.L.raw.data[[<<i>>]])) {
+    cat("Not enough data for QC table.")
+  } else {
+    cat("Level 1")
+    val_dat$prc.L.raw.data[[<<i>>]] |> 
+      flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+  }
+  
+  if (is.null(val_dat$prc.H.raw.data[[<<i>>]])) {
+    cat("Not enough data for QC table.")
+  } else {
+    cat("Level 2")
+    val_dat$prc.H.raw.data[[<<i>>]] |> 
+      flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+  }
+  
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
   
   
   # Combine all the pieces
@@ -464,6 +595,8 @@ build_val_report <- function(i) {
   {output_panel_blandaltman}
   
   {output_panel_datatable}
+  
+  {output_panel_QCtable}
   :::'
   )
 }
