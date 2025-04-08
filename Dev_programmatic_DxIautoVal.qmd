@@ -1,18 +1,18 @@
 ---
 title: "DxI9000 Validations-Report"
 author: "Oliver Speer"
-date:   "`r Sys.Date()`"
+date: "`r Sys.Date()`"
 lang: de
-language: 
+language:
   title-block-author-single: "Autor"
   title-block-published: "Version vom"
-format: 
+format:
   html:
     embed-resources: true
     toc: true
     toc-depth: 4
     toc-location: left
-    toc-title: "Jump to section"
+    toc-title: "Jump to"
     theme: cosmo
     fig-width: 8
     fig-height: 6
@@ -22,11 +22,11 @@ format:
     highlight: "monochrome"
     code-fold: true
     code-tools: true
+    include-before-body: logo.html
+output-file: "DxI9000_Validations-Report.html"    
 editor: source
-website:
-  navbar:
-    logo: C:\\R_local\\labStat\\www\\logo_pos.png
 ---
+
 
 ```{r}
 #| label: startup
@@ -39,6 +39,10 @@ source("fun_wide_QCData_CLSI.R")
 source("StartUp.R")
 StartUpRoutine()
 ```
+
+
+
+
 
 ```{r}
 #| label: SQLRIqueries
@@ -616,6 +620,37 @@ val_reports <- map_chr(
 
 ---
 
+
+::: {.callout-note collapse="true"}
+## Database Info
+
+```{r}
+#| label: sysDate
+#| echo: false
+#| message: false
+#| warning: false
+
+# Aktuelles Datum und Uhrzeit
+cat("Letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"), "\n")
+cat("Datenbank:", dbGetInfo(con)$dbname, "\n")
+lastchange <- format(as.POSIXct( file.info(path)$mtime, origin = "1970-01-01"), "%d.%m.%Y %H:%M:%S")
+cat("Letzte Datenbankänderung:", lastchange, "\n")
+
+
+# Paketname und Version anzeigen
+db_pkg <- sessionInfo()$otherPkgs$RSQLite  # Für RSQLite
+if (!is.null(db_pkg)) {
+  cat("Datenbankpaket:", db_pkg$Package, "Version", db_pkg$Version, "\n")
+} else {
+  cat("Datenbankpaket nicht geladen oder nicht erkannt.\n")
+}
+
+
+```
+:::
+
+---
+
 `r knitr::knit(text = paste0(val_reports, collapse = "\n\n"))`
 
 ---
@@ -645,3 +680,11 @@ Data is processed using R language^1^, DBI^2^, RSQLite^3^, tidyverse^4^, mcr pac
 14. Heiss, Andrew. 2024. “Guide to Generating and Rendering Computational Markdown Content Programmatically with Quarto.” November 4, 2024. URL: <https://doi.org/10.59350/pa44j-cc302> 
 
 ---
+
+::: title
+<h1>
+
+</h1>
+
+<img src="www/logo_pos.png" alt="Logo" style="height: 30px;"/>
+:::
