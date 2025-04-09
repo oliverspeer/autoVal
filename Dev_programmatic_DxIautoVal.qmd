@@ -352,7 +352,7 @@ val_dat <- val_dat |>
     PBreg = pmap(
       lst(data),
       \(data) {
-        if (nrow(data) < 3) {
+        if (nrow(data) < 3 || sd(data$DxI800) == 0 || sd(data$DxI9000) == 0) {
           return(NULL)
         } else {
         method.x <- data$DxI800
@@ -539,7 +539,8 @@ build_val_report <- function(i) {
     bg(bg = "grey", part = "header") |> 
     align(align = "center", part = "all") |> 
     bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
-    set_table_properties(width = 0.6, layout = "autofit")
+    set_table_properties(width = 0.6, layout = "autofit") |> 
+    colformat_num(j =5, big.mark = "")
   ```',
   .open = "<<",
   .close = ">>"
