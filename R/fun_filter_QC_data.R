@@ -1,11 +1,14 @@
-fun_filter_QC_data_by_date <- function(qc_data) {
+fun_filter_QC_data <- function(qc_data) {
   qc_data  |> 
     mutate(
       Date = as.Date(TestCompleteDT, "%m-%d-%Y"),
       maxDate = as.Date(maxDate, "%Y-%m-%d"),
       minDate = as.Date(minDate, "%Y-%m-%d")
     )  |> 
-    filter(Date <= maxDate & Date >= minDate)
+    filter(Date <= maxDate & Date >= minDate) |>  
+    filter(grepl("^QC", SampleID)) |> 
+    mutate(Date = as.character(Date)) 
+  
 }
 
 #' @title filter_QC_data_by_date
