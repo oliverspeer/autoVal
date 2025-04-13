@@ -8,8 +8,10 @@ fun_prepare_RI_data <- function(data) {
         TRUE ~ paste0(RI_L, " - ", RI_H)
       )
     )  |> 
-    ungroup()  |> 
-    select(-RI_L, -RI_H)
+    rename(Analyt = DxI9000) |>
+    select(-RI_L, -RI_H) |> 
+    arrange(Analyt) |>
+    ungroup()
 }
 
 #' @title fun_prepare_RI_data

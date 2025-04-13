@@ -1,7 +1,7 @@
 fun_get_VK_SQL_data <- function(con) {
   dbGetQuery(con, "
   SELECT DISTINCT 
-    d.TestName AS DxI9000, 
+    d.TestName AS Analyt, 
     --q.'QUALAB_3S[%]', 
     q.'BCI_VK[%]'
   FROM QBRData q
