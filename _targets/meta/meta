@@ -1,0 +1,36 @@
+name|type|data|command|depend|seed|path|time|size|bytes|format|repository|iteration|parent|children|seconds|warnings|error
+db_connection|stem|a51875a765290bb2|f26c53eba7483840|2c530c1562a7fbd1|519237725||t20189.1744424495s|s280b|280|rds|local|vector|||0.824||
+close_connection|stem|7f64d27a16de8c73|122cc36501268c07|8c24955cda118d53|-1804133541||t20189.1744459449s|s44b|44|rds|local|vector|||0.227|Already disconnected|
+ri_data_prepared|stem|800f13f1dc7fc185|6924e326ecce612b|7c3dff8be2c6f855|-667033966||t20189.2692560246s|s525b|525|rds|local|vector|||0.175||
+vk_data|stem|053dea18a0ac61d3|b24dd867eb100f06|1a03d7fa0bc63a75|128095741||t20190.3020187285s|s454b|454|rds|local|vector|||0.516||
+qc_pre_data|stem|29e479da95c6d750|0d85d426fb687c26|56eacff461b8d0f2|-2136704845||t20190.3020208234s|s185442b|185442|rds|local|vector|||0.601||
+ri_pre_data|stem|6ec32c49f6ec2394|32ce00637f6116cc|30b3ab48f903be72|1302404160||t20190.3020211822s|s518b|518|rds|local|vector|||0.108||
+fun_filter_QC_data_by_date|function|22929dd213356416|||||||||||||||
+fun_process_qc_data|function|eb2c73ad955426e6|||||||||||||||
+ri_data|stem|800f13f1dc7fc185|80abe14cee3939cc|6c92096c83bb7469|-1114270172||t20190.3056824666s|s525b|525|rds|local|vector|||0.523||
+fun_get_val_data|function|a86ba0b8b9f6c350|||||||||||||||
+val_pre_data|stem|6798200c8154ac92|46bb62cadbd719c1|bbdefecfc33962c6|-1896568796||t20190.5906795622s|s19087b|19087|rds|local|vector|||3.861||
+val_data|stem|1164445dc790267d|c6448619775d5a43|a32934049c26cdda|-1998789218||t20190.590682699s|s24954b|24954|rds|local|vector|||0.214||
+scatter_plots|stem|9e61172d82f5040d|0ee70b36f5b98f45|82d41a9eeae865bf|1063551923||t20190.7093538236s|s502936b|502936|rds|local|vector|||0.575||
+val_data2|stem|9e61172d82f5040d|0ee70b36f5b98f45|82d41a9eeae865bf|1948252123||t20190.8097853554s|s502936b|502936|rds|local|vector|||1.109||
+qc_data|stem|5b27b0f4e053ce6f|2101e2f37a902725|0fec86381d66a688|-785372022||t20190.8365911028s|s69501b|69501|rds|local|vector|||1.627||
+val_data1|stem|91e0d52fabe0addd|d72def6677471da0|f2840617a1734065|-1170626356||t20190.8366167634s|s5184b|5184|rds|local|vector|||2.142|There were 12 warnings in mutate.The first warning wasℹ In argument prc.L.raw.data  listfun_wide_QCData_CLSIAnalyt, 1,  azAZ1, data.ℹ In row 3.Caused by warning in get_recent_data Zuwenig Messungen Es wurden nur  0  Zeilen gefunden, aber 25 benoetigt.ℹ Run dplyrlast_dplyr_warnings to see the 11 remaining warnings.|
+qc_results|stem|1b87cac646e4fe16|571786f6e5b951f5|73afb4bc283dba62|-645048661||t20190.8419270902s|s958b|958|rds|local|vector|||2.246|Zuwenig Messungen Es wurden nur  10  Zeilen gefunden, aber 25 benoetigt.. Zuwenig Messungen Es wurden nur  10  Zeilen gefunden, aber 25 benoetigt.. Not enough data for BhCG. Skipping.. Zuwenig Messungen Es wurden nur  10  Zeilen gefunden, aber 25 benoetigt.. Zuwenig Messungen Es wurden nur  10  Zeilen gefunden, aber 25 benoetigt.. Not enough data for Estradiol. Skipping.. Zuwenig Messungen Es wurden nur  0  Zeilen gefunden, aber 25 benoetigt.. Zuwenig Messungen Es wurden nur  0  Zeilen gefunden, aber 25 benoetigt.. Not enough data for GI199Ag. Skipping.. Zuwenig Messungen Es wurden nur  0  Zeilen gefunden, aber 25 benoetigt.. Zuwenig Messungen Es wurden nur  0  Zeilen gefunden, aber 25 benoetigt.. Not enough data for BR153Ag. Skipping.. Zuwenig Messungen Es wurden nur  15  Zeilen gefunden, aber 25 benoetigt.. Zuwenig Messungen Es wurden nur  15  Zeilen gefunden, aber 25 benoetigt.. Not enough data for Myoglobin. Skipping.|
+val_data3|stem|59aaacccd72822ad|ee24d54764006c6f|2610c9bbd85b18dd|972436251||t20190.8492002068s|s982103b|982103|rds|local|vector|||16.217||
+fun_get_val_SQL_data|function|a86ba0b8b9f6c350
+fun_add_paba_regression|function|d5bd4624e4852859
+fun_calc_prc_metrics|function|9a17b1d53cbcbe46
+fun_calc_bias_data|function|ad01aeef65c1f3cb
+get_recent_data|function|54796509de6435aa
+fun_filter_QC_data|function|22929dd213356416
+fun_nest_val_data|function|c821d453f6ba4849
+fun_get_QC_SQL_data|function|e7e25564ed8cebfb
+fun_get_RI_SQL_data|function|0e1f7eaeb51fe985
+fun_get_VK_SQL_data|function|ac28c89b8161bec3
+.Random.seed|object|036e13769f68638b
+fun_add_scatterplot|function|ce36377ebf6562ed
+fun_prepare_RI_data|function|69d90225c37f7d1b
+fun_wide_QCData_CLSI|function|7e9c25655c7dde13
+fun_process_QC_data|function|a3f3e1815576c45d
+fun_add_wide_QC_data|function|ad27601c21d0ab10
+val_data4|stem|61e779268bed8e5c|d8db3878314af01f|e590c6f811a58763|-346878725||t20190.8590060431s|s987014b|987014|rds|local|vector|||0.722||

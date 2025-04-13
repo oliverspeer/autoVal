@@ -90,6 +90,7 @@ list(
     )) |> 
       arrange(Analyt)
   }),
+  tar_target(qc_summary, fun_process_qc_summary(ri_data, vk_data, qc_results)),
   
   # retriev QC-measurements from the SQL database
   tar_target(val_pre_data, {
@@ -109,7 +110,11 @@ list(
   
   # add paba regression data
   tar_target(val_data3, fun_add_paba_regression(val_data2)),
-  tar_target(val_data4, left_join(val_data3, val_data1, by = "Analyt"))
+  tar_target(val_data4, left_join(val_data3, val_data1, by = "Analyt")),
+  tar_target(val_data5, fun_add_qc_summary(val_data4, qc_summary))
+  
+  # add VK summary data
+  #tar_target(val_data5, fun_add_summary_stats(val_data4, qc_results))
   # ,
   # tar_target(close_connection, {
   #   #con <- db_connection
