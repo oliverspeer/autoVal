@@ -22,6 +22,7 @@ sum.dat <- df.mol.mass |>
 # read Raw Data------------------------------------------------------
 # Define the raw data directory 
 #dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\"
+dir.rawdata <- "C:/R_local/autoVal/2_Rohdaten/"
 dir.rawdata <- getwd()
 
 # Identify the latest CSV file based on modification time
@@ -36,7 +37,7 @@ if (length(latest.csv) == 0) {
 }
 
 # read csv, rename, extract SampleNr------------------------------------------------
-val.dat <- read_csv2(latest.csv) |> 
+val.dat <- read_csv(latest.csv) |> 
   rename(
     PatientID = `Patient ID`,
     SampleID = `Sample ID`,
