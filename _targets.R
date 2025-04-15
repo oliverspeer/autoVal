@@ -5,11 +5,24 @@
 
 # Load packages required to define the pipeline:
 library(targets)
-# library(tarchetypes) # Load other packages as needed.
+library(tarchetypes) 
+# Load other packages as needed.
 
 # Set target options:
 tar_option_set(
-  packages = c("tibble", "RSQLite", "DBI", "tidyverse", "CLSIEP15", "mcr", "parallel", "robslopes"),
+  packages = c("tibble", 
+               "RSQLite", 
+               "DBI", 
+               "tidyverse", 
+               "CLSIEP15", 
+               "mcr", 
+               "parallel", 
+               "robslopes", 
+               "data.table", 
+               "readxl",
+               "openxlsx2",
+               "fs",
+               "rlang"),
   # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
@@ -22,7 +35,7 @@ tar_option_set(
   # which run as local R processes. Each worker launches when there is work
   # to do and exits if 60 seconds pass with no tasks to run.
   #
-  controller = crew::crew_controller_local(workers = 2, seconds_idle = 60)
+  controller = crew::crew_controller_local(workers = 6, seconds_idle = 60)
   #
   # Alternatively, if you want workers to run on a high-performance computing
   # cluster, select a controller from the {crew.cluster} package.
@@ -53,14 +66,46 @@ tar_source("R")
 list(
   # tar_target(db_connection, {
   #   # Create a SQLite database connection
-  #   db <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2.db")}
+  #   db <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")}
   #  # name = data,
   #   #command = tibble(x = rnorm(100), y = rnorm(100))
   #   # format = "qs" # Efficient storage for general data objects.
   # ),
+  # überwachen ob neue csv-files mit Messdaten vorhanden sind
+    tar_files(name = raw_data_csv,
+              command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
+                                   pattern = "*.csv",
+                                   full.names = TRUE,
+                                   recursive = FALSE),
+              format = "file"), # Use format = "file" for file targets.
+    
+    
+    #tidy and upload DxI9000 data
+    tar_files(name = raw_data_xlsx,
+              command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
+                                   pattern = "*.xlsx",
+                                   full.names = TRUE,
+                                   recursive = FALSE),
+              format = "file"),
+    
+    #tidy and upload DxI800 data
+    #tar_target(dxi800_data, fun_tidy_and_upload_DxI800_data(raw_data_xlsx_files)),
+    tar_target(dxi800_data_sql, {
+      # Create a SQLite database connection
+      con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
+      on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
+      fun_tidy_and_upload_DxI800_data(con, raw_data_files = raw_data_xlsx_files)
+      # dbWriteTable(con, 
+      #              "MeasurementData", 
+      #              dxi800_data, 
+      #              append = TRUE, 
+      #              row.names = FALSE)
+      
+    }),
+  
   tar_target(ri_pre_data, {
     # Create a SQLite database connection
-    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2.db")
+    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
     on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
     data <- fun_get_RI_SQL_data(con)
     data
@@ -68,14 +113,14 @@ list(
   tar_target(ri_data, fun_prepare_RI_data(ri_pre_data)),
   tar_target(vk_data, {
     # Create a SQLite database connection
-    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2.db")
+    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
     on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
     data <- fun_get_VK_SQL_data(con)
     data
   }),
   tar_target(qc_pre_data, {
     # Create a SQLite database connection
-    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2.db")
+    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
     on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
     data <- fun_get_QC_SQL_data(con)
     data
@@ -95,9 +140,10 @@ list(
   # retriev QC-measurements from the SQL database
   tar_target(val_pre_data, {
     # Create a SQLite database connection
-    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2.db")
+    con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
     on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
-    data <- fun_get_val_SQL_data(con)
+    #MD_hash <- tar_read(dxi800_data_sql)
+    data <- fun_get_val_SQL_data(con, MD_hash = dxi800_data_sql)
     data
   }),
   
@@ -111,7 +157,14 @@ list(
   # add paba regression data
   tar_target(val_data3, fun_add_paba_regression(val_data2)),
   tar_target(val_data4, left_join(val_data3, val_data1, by = "Analyt")),
-  tar_target(val_data5, fun_add_qc_summary(val_data4, qc_summary))
+  tar_target(val_dat, fun_add_qc_summary(val_data4, qc_summary)),
+  tar_quarto(
+    name = DxI9000_Validations_Report,
+    path = "C:/R_local/autoVal/Dev_targets_DxIautoVal.qmd"#,
+    #execute_params = list(val_dat = val_dat)
+    
+  )
+  
   
   # add VK summary data
   #tar_target(val_data5, fun_add_summary_stats(val_data4, qc_results))
