@@ -1,4 +1,9 @@
-fun_get_val_SQL_data <- function(con) {
+fun_get_val_SQL_data <- function(con, MD_hash) {
+  
+  
+  if (is.null(MD_hash)) {
+    stop("Die Tabelle 'MeasurementData' ist leer oder nicht vorhanden.")
+  }
 dbGetQuery(con, "
   SELECT DISTINCT
     d.TestName AS Analyt,
