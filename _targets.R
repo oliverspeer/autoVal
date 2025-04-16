@@ -22,7 +22,9 @@ tar_option_set(
                "readxl",
                "openxlsx2",
                "fs",
-               "rlang"),
+               "rlang",
+               "data.table",
+               "units"),
   # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
@@ -76,17 +78,22 @@ list(
               command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
                                    pattern = "*.csv",
                                    full.names = TRUE,
-                                   recursive = FALSE),
-              format = "file"), # Use format = "file" for file targets.
+                                   recursive = FALSE)#,
+              #format = "file"
+              ), # Use format = "file" for file targets.
     
+   tar_files(MolMass_xlsx, "Dev_changeUnitsDxI9000.xlsx"),
+   tar_target(molmass_data, fun_load_molmass(MolMass_xlsx_files)),
+   tar_target(DxI9000_data, fun_load_process_DxI9000_data(raw_data_csv_files, sum_dat = molmass_data)),
     
     #tidy and upload DxI9000 data
     tar_files(name = raw_data_xlsx,
               command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
                                    pattern = "*.xlsx",
                                    full.names = TRUE,
-                                   recursive = FALSE),
-              format = "file"),
+                                   recursive = FALSE)#,
+              #format = "file"
+              ),
     
     #tidy and upload DxI800 data
     #tar_target(dxi800_data, fun_tidy_and_upload_DxI800_data(raw_data_xlsx_files)),
