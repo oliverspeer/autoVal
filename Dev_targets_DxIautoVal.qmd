@@ -1,0 +1,367 @@
+---
+title: "DxI9000 Validations-Report"
+output_format: html
+author: "Oliver Speer"
+date: "`r Sys.Date()`"
+lang: de
+language:
+  title-block-author-single: "Autor"
+  title-block-published: "Version vom"
+format:
+  html:
+    embed-resources: true
+    toc: true
+    toc-depth: 4
+    toc-location: left
+    toc-title: "Jump to"
+    theme: cosmo
+    fig-width: 8
+    fig-height: 6
+    fig-align: "center"
+    fig-caption: true
+    df-print: kable
+    highlight: "monochrome"
+    code-fold: true
+    code-tools: true
+    include-before-body: logo.html
+editor: source
+---
+```{r}
+#| label: load
+#| message: false
+
+targets::tar_load(
+  c(val_dat, 
+    dxi800_data_sql, 
+    dxi9000_data_sql
+    )
+  )
+#targets::tar_load(dxi800_data_sql) 
+#targets::tar_load(dxi9000_data_sql)
+
+
+```
+
+
+
+```{r}
+#| label: startup
+#| message: false
+#| warning: false
+#| echo: false
+
+#source("fun_recent_QCData_CLSI.R")
+#source("fun_wide_QCData_CLSI.R")
+source("StartUp.R")
+StartUpRoutine()
+
+
+
+
+```
+
+
+
+
+
+
+```{r, panelbuilding}
+#| label: build-panels
+#| message: false
+#| warning: false
+#| echo: false
+
+# Funktion zum Erstellen der Panels
+build_val_report <- function(i) {
+  name_for_labels <- janitor::make_clean_names(val_dat$Analyt[[i]])
+  
+  output_first_part <- glue('
+  ### `r val_dat$Analyt[[<<i>>]]`
+
+    ',
+  .open = "<<",
+  .close = ">>")
+  
+  output_panel_summary <- glue(
+    '
+  #### Summary
+  
+  ```{r}
+  #| label: summary-<<name_for_labels>>
+  #| echo: false
+  
+  val_dat$summary_details[[<<i>>]] |> 
+    knitr::kable()
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  output_panel_plot <- glue(
+    '
+  #### Scatter-Plot
+
+  ```{r}
+  #| label: plot-summary-<<name_for_labels>>
+  #| echo: false
+
+  val_dat$plot[[<<i>>]]
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  output_panel_paba <- glue(
+    '
+  #### Passing-Bablok
+
+  ```{r}
+  #| label: plot-paba-<<name_for_labels>>
+  #| echo: false
+  if (is.null(val_dat$PBreg[[<<i>>]])) {
+    cat("Not enough data for Passing Bablok regression.")
+  } else {
+      plot_title <- paste0("Test: ", val_dat$Analyt[[<<i>>]])
+      
+      # Set up the layout for 3 plots side by side
+      # par(mfrow = c(1, 3))
+      
+      # First plot: Passing Bablok
+      MCResult.plot(val_dat$PBreg[[<<i>>]],
+                  equal.axis = TRUE,
+                  points.col = "#68228B",
+                  points.pch = 19, ci.area = TRUE,
+                  ci.area.col = "#0000FF50",
+                  main = plot_title,
+                  sub = "",
+                  add.cor = TRUE,
+                  cor.method = "spearman",
+                  add.grid = FALSE,
+                  points.cex = 1)
+
+      ##Angabe Steigung und Achsenabschnitt und CI
+      intercept_est <- val_dat$PBreg[[<<i>>]]@para[1]
+      intercept_lci <- val_dat$PBreg[[<<i>>]]@para[5]
+      intercept_uci <- val_dat$PBreg[[<<i>>]]@para[7]
+      gradient_est <- val_dat$PBreg[[<<i>>]]@para[2]
+      gradient_lci <- val_dat$PBreg[[<<i>>]]@para[6]
+      gradient_uci <- val_dat$PBreg[[<<i>>]]@para[8]
+      alpha_ci <- val_dat$PBreg[[<<i>>]]@alpha[1]
+      text(cex=.65,
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.49,
+          sprintf("Gradient : %4.2f (%4.2f - %4.2f)", 
+            gradient_est, 
+            gradient_lci, 
+            gradient_uci))
+      text(cex=.65,
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.42,
+          sprintf("Intercept : %4.2f (%4.2f - %4.2f)", 
+            intercept_est, 
+            intercept_lci, 
+            intercept_uci))
+      text(cex=.65,
+        x=max(val_dat$data[[<<i>>]][,1:2])*0.8,y=max(val_dat$data[[<<i>>]][,1:2])*0.35, 
+          sprintf("alpha : %4.2f", 
+            alpha_ci))
+            
+      fitPaBa <- mcreg(as.matrix(val_dat$data[[<<i>>]][,1:2]), method.reg="PaBa", na.rm=TRUE)
+      fitlr <- mcreg(as.matrix(val_dat$data[[<<i>>]][,1:2]), method.reg="LinReg", na.rm=TRUE)
+      
+      # Second and third plots: comparing intercetp and slope
+      compareFit(fitlr, fitPaBa)      
+
+  }
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  output_panel_blandaltman <- glue(
+    '
+  #### Bland-Altman
+  ```{r}
+  #| label: plot-blandaltman-<<name_for_labels>>
+  #| echo: false
+  if (is.null(val_dat$PBreg[[<<i>>]])) {
+    cat("Not enough data for Bland-Altman plot.")
+  } else {
+      MCResult.plotDifference(val_dat$PBreg[[<<i>>]], main = plot_title)
+      MCResult.plotDifference(val_dat$PBreg[[<<i>>]], plot.type = 8, main = paste("rel Difference plot", plot_title))
+  }
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  output_panel_datatable <- glue(
+    '
+  #### Messdaten
+  ```{r}
+  #| label: data-<<name_for_labels>>
+  #| echo: false
+  #| message: false
+  #| warning: false
+  
+  val_dat$data[[<<i>>]] |> 
+    mutate(DxI800 = round(DxI800, 2),
+           DxI9000 = round(DxI9000, 2)) |>
+    arrange(Probennummer) |>
+    flextable() |>  
+    theme_vanilla() |>  
+    bg(bg = "grey", part = "header") |> 
+    align(align = "center", part = "all") |> 
+    bg(j = 4, bg = scales::col_numeric(palette = c("blue", "green", "red"), domain = c(-40, 40))) |> 
+    set_table_properties(width = 0.6, layout = "autofit") |> 
+    colformat_num(j =5, big.mark = "")
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+ 
+  output_panel_QCtable <- glue(
+    '
+  #### QC-Daten
+  ```{r}
+  #| label: QC-<<name_for_labels>>
+  #| echo: false
+  #| message: false
+  #| warning: false
+  
+  if (is.null(val_dat$prc.L.raw.data[[<<i>>]])) {
+    cat("Not enough data for QC table.")
+  } else {
+    cat("Level 1")
+    val_dat$prc.L.raw.data[[<<i>>]] |> 
+      flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+  }
+  
+  if (is.null(val_dat$prc.H.raw.data[[<<i>>]])) {
+    cat("Not enough data for QC table.")
+  } else {
+    cat("Level 2")
+    val_dat$prc.H.raw.data[[<<i>>]] |> 
+      flextable()|> 
+      align(align = "center", part = "all")|> 
+      autofit()|>
+      add_footer_lines("")|>
+      bg(bg = "grey", part = "header")
+  }
+  
+  ```',
+  .open = "<<",
+  .close = ">>"
+  )
+  
+  
+  # Combine all the pieces
+  output <- glue(
+    '
+  {output_first_part}
+
+  ::: {{.panel-tabset}}
+  {output_panel_summary}
+  
+  {output_panel_plot}
+
+  {output_panel_paba}
+  
+  {output_panel_blandaltman}
+  
+  {output_panel_datatable}
+  
+  {output_panel_QCtable}
+  :::'
+  )
+}
+```
+
+```{r, valreports}
+#| message: false
+#| warning: false
+#| echo: false
+
+# Generierung der Panels
+val_reports <- map_chr(
+  seq_len(nrow(val_dat)), 
+  \(i) build_val_report(i)
+)
+```
+
+---
+
+
+::: {.callout-note collapse="true"}
+## Database Info
+
+```{r}
+#| label: sysDate
+#| echo: false
+#| message: false
+#| warning: false
+
+# Aktuelles Datum und Uhrzeit
+cat("Letzte Datenbankabfrage am:", format(Sys.time(), "%d.%m.%Y %H:%M:%S"), "\n")
+cat("Datenbank:", dbGetInfo(con)$dbname, "\n")
+lastchange <- format(as.POSIXct( file.info(path)$mtime, origin = "1970-01-01"), "%d.%m.%Y %H:%M:%S")
+cat("Letzte Datenbankänderung:", lastchange, "\n")
+cat("DxI800-hash:", dxi800_data_sql, "\n")
+cat("DxI9000-hash:", dxi9000_data_sql, "\n")
+
+
+# Paketname und Version anzeigen
+db_pkg <- sessionInfo()$otherPkgs$RSQLite  # Für RSQLite
+if (!is.null(db_pkg)) {
+  cat("Datenbankpaket:", db_pkg$Package, "Version", db_pkg$Version, "\n")
+} else {
+  cat("Datenbankpaket nicht geladen oder nicht erkannt.\n")
+}
+
+dbDisconnect(con)
+
+
+```
+:::
+
+---
+
+`r knitr::knit(text = paste0(val_reports, collapse = "\n\n"))`
+
+---
+
+**Zentrum für Labormedizin St. Gallen, `r paste(format(Sys.time(), '%A %d. %B %Y'))`**
+
+--- 
+
+## Appendix
+Data is processed using R language^1^, DBI^2^, RSQLite^3^, tidyverse^4^, mcr package^5^, CLSIEP15^6^ and flextable package^7^. glue^8^, knitr^9^ and quarto^10^ are used for converting results into Word, PDF and HTML files. This project was inspired by Daniel Holmes (UBC, CA)^11^, Burak Bahar (Washington, USA)^12^, David Gohel (Roubaix, F)^13^ and Andrew Heiss (Georgia State University, USA)^14^.
+  
+### References and packages
+  
+1.  R: A language and environment for statistical computing. R Foundation for Statistical Computing, Vienna, Austria. Version: `r getRversion()` URL: <https://www.R-project.org>
+2. DBI: R Database Interface. Version: `r packageDescription("DBI")$Version` URL: <http://CRAN.R-project.org/package=DBI>
+3. RSQLite: SQLite Interface for R. Version: `r packageDescription("RSQLite")$Version` URL: <http://CRAN.R-project.org/package=RSQLite>
+4.  tidyverse: Easily Install and Load the 'Tidyverse'. Version: `r packageDescription("tidyverse")$Version` URL: <http://CRAN.R-project.org/package=tidyverse>
+5.  mcr: Method Comparison Regression. Version: `r packageDescription("mcr")$Version` URL: <http://CRAN.R-project.org/package=mcr>
+6.  CLSIEP15: Clinical and Laboratory Standards Institute (CLSI) EP15-A3 Calculations. Version: `r packageDescription("CLSIEP15")$Version` URL: <http://CRAN.R-project.org/package=CLSIEP15>
+7.  flextable: a framework for easily creating tables. Version: `r packageDescription("flextable")$Version` URL: <http://CRAN.R-project.org/package=flextable>
+8.  glue: Interpreted String Literals. Version: `r packageDescription("glue")$Version` URL: <http://CRAN.R-project.org/package=glue>
+9.  knitr: A General-Purpose Package for Dynamic Report Generation in R. Version: `r packageDescription("knitr")$Version` URL: <http://yihui.org/knitr>
+10.  quarto: Quarto: Open-Source Scientific and Technical Publishing System. Version: `r packageDescription("quarto")$Version` URL: <https://quarto.org>
+11.  The Lab-R-torian: URL: <https://labrtorian.com/>
+12.  An interactive website for analytical method comparison and bias estimation: URL: <https://bahar.shinyapps.io/method_compare/>
+13.  SOLUTIONS ET FORMATIONS EN DATA-SCIENCE: URL: <https://www.ardata.fr/>
+14. Heiss, Andrew. 2024. “Guide to Generating and Rendering Computational Markdown Content Programmatically with Quarto.” November 4, 2024. URL: <https://doi.org/10.59350/pa44j-cc302> 
+
+---
+
+::: title
+<h1>
+
+</h1>
+
+<img src="www/logo_pos.png" alt="Logo" style="height: 30px;"/>
+:::
