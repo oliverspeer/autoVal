@@ -1,3 +1,4 @@
+# Function to convert units to a standard form----------------------------
 fun_convert_to_standard <- function(unit) {
   install_unit("IU", "umol/min", "international unit")
   # Define a dictionary for common unit conversions
@@ -15,9 +16,7 @@ fun_convert_to_standard <- function(unit) {
     "mIU/ml" = set_units(1, "mIU/ml"),
     "uIU/ml" = set_units(1, "uIU/ml"),
     "U/l" = set_units(1, "IU/l"),
-    "U/ml" = set_units(1, "IU/ml"),
     "nmol/l" = set_units(1, "nmol/l"),
-    "kU/l" = set_units(1000, "IU/l"),
     "µg/l" = set_units(1, ug/l),
     "ng/mL" = set_units(1, ng/ml),
     "ng/ml" = set_units(1, ng/ml),
@@ -37,8 +36,17 @@ fun_convert_to_standard <- function(unit) {
     "mIU/mL" = set_units(1, mIU/ml),
     "nmol/L" = set_units(1, nmol/l), # assuming case insensitivity
     "nmol/l" = set_units(1, nmol/l),
-    "g/mol" = set_units(1, g/mol),# assuming case insensitivity
-    "U/ml" = set_units(1, IU/ml),
-    "kU/l" = set_units(1000, IU/l)
+    "g/mol" = set_units(1, g/mol)# assuming case insensitivity
   )
+  
+  
+  
+  # Check if unit exists in dictionary
+  if (!unit #_lower 
+      %in% names(unit_dict)) {
+    message(paste("Unit", unit, "not found in dictionary."))
+    return(NULL)
+  }
+  
+  return(unit_dict[[unit]])
 }
