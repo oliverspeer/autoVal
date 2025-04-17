@@ -79,12 +79,22 @@ fun_read_multi_excel_data <- function(raw_data_files, dt_name = "dxi.data") {
   
   
   
+  # archive <- "C:/R_local/autoVal/2_Rohdaten/sql_importiert/"
+  # files.name <- basename(files)
+  # 
+  # # Verschiebe alle Dateien außer "BlutDxI_dummy.xlsx"
+  # for (file in files) {
+  #   if (basename(file) != "BlutDxI_dummy.xlsx") {
+  #     file_move(file, file.path(archive, basename(file)))
+  #   }
+  # }
   
   
+  # archive <- "C:/R_local/autoVal/2_Rohdaten/sql_importiert/" #"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\SQLdb_importiert\\"
+  # files.name <- basename(files)
+  # file_move(files,  file.path(archive, files.name))
   
-  archive <- "C:/R_local/autoVal/2_Rohdaten/sql_importiert/" #"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\SQLdb_importiert\\"
-  files.name <- basename(files)
-  file_move(files,  file.path(archive, files.name))
+  
   
   return(dt_name)
 }

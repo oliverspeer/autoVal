@@ -1,7 +1,8 @@
-fun_get_val_SQL_data <- function(con, MD_hash) {
+fun_get_val_SQL_data <- function(con, MD_hash, DD_hash) { #con = connection to SQLite database, 
+                                                          #MD_hash = hash of the MeasurementData table
+                                                          #DD_hash = hash of the DxIvalData table                   
   
-  
-  if (is.null(MD_hash)) {
+  if (is.null(MD_hash) || is.null(DD_hash)) {
     stop("Die Tabelle 'MeasurementData' ist leer oder nicht vorhanden.")
   }
 dbGetQuery(con, "

@@ -25,6 +25,7 @@ tar_option_set(
                "rlang",
                "data.table",
                "units"),
+  # error = "null",
   # Packages that your targets need for their tasks.
   # format = "qs", # Optionally set the default storage format. qs is fast.
   #
@@ -58,6 +59,7 @@ tar_option_set(
   #   )
   #
   # Set other options as needed.
+  # Continue running the pipeline even if a target fails.
 )
 
 # Run the R scripts in the R/ folder with your custom functions:
@@ -73,31 +75,41 @@ list(
   #   #command = tibble(x = rnorm(100), y = rnorm(100))
   #   # format = "qs" # Efficient storage for general data objects.
   # ),
+  
   # überwachen ob neue csv-files mit Messdaten vorhanden sind
     tar_files(name = raw_data_csv,
               command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
                                    pattern = "*.csv",
                                    full.names = TRUE,
-                                   recursive = FALSE)#,
-              #format = "file"
+                                   recursive = FALSE)
               ), # Use format = "file" for file targets.
-    
+  
+    # get mol-mass xlsx file  
    tar_files(MolMass_xlsx, "Dev_changeUnitsDxI9000.xlsx"),
+    # import and process mol-mass data
    tar_target(molmass_data, fun_load_molmass(MolMass_xlsx_files)),
-   tar_target(DxI9000_data, fun_load_process_DxI9000_data(raw_data_csv_files, sum_dat = molmass_data)),
+    # import and process DxI9000 data
+   tar_target(DxI9000_data, 
+              fun_load_process_DxI9000_data(raw_data_csv_files, sum_dat = molmass_data)),
+    # upload DxI9000 data to SQLite database
+   tar_target(dxi9000_data_sql, {
+      # Create a SQLite database connection
+      con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
+      on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
+      fun_upload_DxI9000_data(con, DxI9000_data)
+    }),
     
-    #tidy and upload DxI9000 data
-    tar_files(name = raw_data_xlsx,
+    #check for new DxI800 xlsx-files
+  tar_files(name = raw_data_xlsx,
               command = list.files(path = "C:/R_local/autoVal/2_Rohdaten",#"I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten",
                                    pattern = "*.xlsx",
                                    full.names = TRUE,
-                                   recursive = FALSE)#,
-              #format = "file"
+                                   recursive = FALSE)
               ),
     
     #tidy and upload DxI800 data
     #tar_target(dxi800_data, fun_tidy_and_upload_DxI800_data(raw_data_xlsx_files)),
-    tar_target(dxi800_data_sql, {
+  tar_target(dxi800_data_sql, {
       # Create a SQLite database connection
       con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
       on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
@@ -150,7 +162,7 @@ list(
     con <- DBI::dbConnect(RSQLite::SQLite(), "ClinicalChemistry_2_test.db")
     on.exit(dbDisconnect(con))  # Ensure the connection is closed when done
     #MD_hash <- tar_read(dxi800_data_sql)
-    data <- fun_get_val_SQL_data(con, MD_hash = dxi800_data_sql)
+    data <- fun_get_val_SQL_data(con, MD_hash = dxi800_data_sql, DD_hash = dxi9000_data_sql)
     data
   }),
   
@@ -167,7 +179,7 @@ list(
   tar_target(val_dat, fun_add_qc_summary(val_data4, qc_summary)),
   tar_quarto(
     name = DxI9000_Validations_Report,
-    path = "C:/R_local/autoVal/Dev_targets_DxIautoVal.qmd"#,
+    path = "Dev_targets_DxIautoVal.qmd"#,
     #execute_params = list(val_dat = val_dat)
     
   )

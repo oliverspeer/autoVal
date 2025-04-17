@@ -182,5 +182,16 @@ fun_load_process_DxI9000_data <- function(csv_path, sum_dat) {
         gsub("nachm\\.", "PM", .)
     )
   
+  # archive <- "C:/R_local/autoVal/2_Rohdaten/sql_importiert/"
+  # files <- csv_path
+  # files.name <- basename(files)
+  # 
+  # # Verschiebe alle Dateien außer "BlutDxI_dummy.xlsx"
+  # for (file in files) {
+  #   if (basename(file) != "250417dummy.csv") {
+  #     file_move(file, file.path(archive, basename(file)))
+  #   }
+  # }
+  
   return(val.dat)
 }
