@@ -1,68 +1,77 @@
+# 16.01.2025 loads latest csv-file from DxI9000, converts units to ZLM INLAB standard form
+# 
+
 # prepare libraries and database connection--------------------------
 
-setwd("H:/R/autoVal_H")
+setwd("I:/Institut-Haus 04/Labor 2_Core Lab Klinische Chemie/Evaluationen/Geraete/DxI9000/Validation/5_R")
+#setwd("H:/R/autoVal_H")
+#setwd("C:/R_local/autoVal")
 source("StartUp.R")
 StartUpRoutine()
 
 
 # load mol masses table-----------------------------------------------------------------------------------------------------
-# df.mol.mass <- read_excel("Dev_changeUnitsDxI9000.xlsx") # Dev_changeUnitsDxI9000.xlsx written manually
+# df.mol.mass <- read_excel("H:/R/autoVal_H/Dev_changeUnitsDxI9000.xlsx") # Dev_changeUnitsDxI9000.xlsx written manually
 #save(df.mol.mass, file = "mol_mass.RData")
 load("mol_mass.RData")
 
+sum.dat <- df.mol.mass |> 
+  setDT() |> 
+  mutate(molar_mass = as.numeric(`molar_mass(g/mol)`))
 
-sum.dat <- setDT(df.mol.mass)
-sum.dat$molar_mass <- as.numeric(sum.dat$`molar_mass(g/mol)`)
 
 # read Raw Data------------------------------------------------------
 # Define the raw data directory 
 dir.rawdata <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\"
+#dir.rawdata <- getwd()
 
-# List all raw data CSV files
-csv.files <- list.files(path = dir.rawdata, pattern = "*.csv", full.names = TRUE)
+# Identify the latest CSV file based on modification time
+latest.csv <- list.files(path = dir.rawdata, pattern = "*.csv", full.names = TRUE)  |> 
+  as_tibble()  |> 
+  mutate(mtime = file.info(value)$mtime) |> 
+  slice_max(mtime, n = 1) |> 
+  pull(value)
 
-# Check if there are any raw data files
-if (length(csv.files) > 0) {
-  # Identify the latest file based on modification time
-  latest.csv <- csv.files[which.max(file.info(csv.files)$mtime)]
-
-  
-  
-} else {
-  print("No raw data files found.")
-  stop()
+if (length(latest.csv) == 0) {
+  stop("No raw data files found.")
 }
 
-
-# read csv------------------------------------------------
-val.dat <- read_csv(latest.csv)
-
-# val.dat <- read_csv("I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geräte\\DxI9000\\Validation\\2_Rohdaten\\20240527 Messungen 12.csv")
-
-
-val.dat <- val.dat |>  
+# read csv, rename, extract SampleNr------------------------------------------------
+val.dat <- read_csv(latest.csv) |> 
   rename(
-    PackRevision = `PackRevision...77`,
-    PackRevision2 = `PackRevision...89`
-  )
+    PatientID = `Patient ID`,
+    SampleID = `Sample ID`,
+    TestName = `Test Name`,
+    TestCompleteDT = `Comp. Time`,
+    TestOrderCode = `Test ID`,
+    DoseResult = `Result`,
+    DoseUnit = `Units`,
+    SampleLoadDT  = `Load Date/Time`
+    
+    
+  ) |> 
+  mutate(
+    Probennummer = as.numeric(substr(SampleID, 1, nchar(SampleID) - 2))
+  ) |> 
+  setDT()
 
-setDT(val.dat)
 
-
-val.dat$Probennummer <- as.numeric(substr(val.dat$SampleID, 1, nchar(val.dat$SampleID) - 2))
 val.dat.order <- names(val.dat) # for creation of table later on
 
-# create data.frame to convert units ------------------------------------
-df <- data.frame(cbind(val.dat$TestCompleteDT, val.dat$SampleID , val.dat$TestOrderCode, val.dat$TestName, val.dat$DoseResult, val.dat$DoseUnit))
 
-# Rename columns
-colnames(df) <- c("TestCompleteDT", "SampleID", "TestOrderCode", "TestName", "DoseResult", "DoseUnit")
+# create data.frame to convert units ---------------------------------------------
+df <- val.dat[, .(TestCompleteDT, SampleID, TestOrderCode, TestName, DoseResult, DoseUnit)]
+
 
 # Merge data tables
-merged.dat <- merge(df, sum.dat, by = "TestOrderCode", all.x = TRUE)
-merged.dat$DoseResult <- as.numeric(merged.dat$DoseResult)
 
-
+merged.dat <- df |> 
+  merge(sum.dat, by = "TestOrderCode", all.x = TRUE) |> 
+  mutate(
+    Symbol = sub("([><]).*", "\\1", DoseResult),
+    Symbol = ifelse(Symbol == DoseResult, NA, Symbol),
+    DoseResult = sub("[><]", NA, DoseResult) |> as.numeric()
+  )
 
 # Function to convert units to a standard form----------------------------
 convert_to_standard <- function(unit) {
@@ -146,11 +155,40 @@ for (i in 1:n){
 
 # merge converted results back to val.dat-------------------------------------
 # Merge data tables
-val.dat <- merge(val.dat, merged.dat[, c("TestCompleteDT", "SampleID", "DoseResult_c", "Einheit_800")], by = c('TestCompleteDT', "SampleID"),  all.x = TRUE)
+val.dat <- merge(
+  val.dat, 
+  merged.dat[, c("TestCompleteDT", "SampleID", "Symbol", "DoseResult_c", "Einheit_800")], 
+  by = c('TestCompleteDT', "SampleID"),  
+  all.x = TRUE
+) |>
+  setcolorder(
+    c(
+      "TestOrderCode", "TestName", "SampleID", "Probennummer", "DoseResult", "DoseUnit", "Symbol", "DoseResult_c", "Einheit_800", 
+      setdiff(colnames(val.dat), c("TestOrderCode", "TestName", "SampleID", "Probennummer", "DoseResult", "DoseUnit", "Symbol", "DoseResult_c", "Einheit_800"))
+      )
+    ) |> 
+  mutate(TestCompleteDT = TestCompleteDT |> 
+           as.POSIXct(format = "%m.%d.%Y %H:%M:%S", tz = "UTC") |> 
+           format("%m-%d-%Y %I:%M:%OS3 %p") %>% 
+           gsub("vorm\\.", "AM", .) %>% 
+           gsub("nachm\\.", "PM", .),
+         SampleLoadDT = SampleLoadDT |> 
+           as.POSIXct(format = "%m.%d.%Y %H:%M:%S", tz = "UTC") |> 
+           format("%m-%d-%Y %I:%M:%OS3 %p") %>% 
+           gsub("vorm\\.", "AM", .) %>% 
+           gsub("nachm\\.", "PM", .))
+  
 
-new.col.order <- c("TestOrderCode", "TestName","SampleID", "Probennummer", "DoseResult", "DoseUnit", "DoseResult_c", "Einheit_800", setdiff(val.dat.order, c("TestOrderCode", "TestName", "SampleID", "Probennummer", "DoseResult", "DoseUnit", "DoseResult_c", "Einheit_800"))) 
+# new.col.order <- c("TestOrderCode", "TestName","SampleID", "Probennummer", "Result", "Units", "Symbol", "Result_c", "Einheit_800", 
+#                    setdiff(val.dat.order, c("TestOrderCode", "TestName", "SampleID", "Probennummer", "Result", "Units", "Symbol", "Result_c", "Einheit_800"))) 
+# 
+# setcolorder(val.dat, new.col.order)
 
-setcolorder(val.dat, new.col.order)
+# save the val.dat column names into an R.file
+# file is taken by "TransposeDxI24_DxI25_tablestructure to converte SQLite table structure (23-07/24)
+# to the new table structure (07/24-present)
+# saveRDS(colnames(val.dat), "val.dat.colnames.RDS") 
+
 
 
 # insert val.dat into the SQLite DB--------------------------------
@@ -160,7 +198,9 @@ dbWriteTable(con, "DxIvalData", val.dat, append = TRUE, row.names = FALSE)
 # Disconnect from the database -----------------------------------
 dbDisconnect(con)
 
-
+archive <- "I:\\Institut-Haus 04\\Labor 2_Core Lab Klinische Chemie\\Evaluationen\\Geraete\\DxI9000\\Validation\\2_Rohdaten\\SQLdb_importiert\\"
+files.name <- basename(latest.csv)
+file_move(latest.csv,  file.path(archive, files.name))
 
 
 
